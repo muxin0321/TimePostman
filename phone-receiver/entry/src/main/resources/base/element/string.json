@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "TimePostman 手机接收测试"
+      "value": "时光邮差手机端"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "接收电脑传来的测试图片并保存到图库"
+      "value": "接收电脑传来的照片和视频并保存到图库"
     },
     {
       "name": "EntryAbility_label",
-      "value": "TimePostman 接收测试"
+      "value": "时光邮差"
     }
   ]
 }

@@ -2,7 +2,7 @@ import { http } from '@kit.NetworkKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { curves } from '@kit.ArkUI';
+import { curves, window } from '@kit.ArkUI';
 import {
   DownloadedFile,
   OutboxFile,
@@ -64,6 +64,30 @@ struct Index {
 
   aboutToAppear(): void {
     this.initPrefs();
+    this.applySystemBarColors();
+  }
+
+  onPageShow(): void {
+    this.applySystemBarColors();
+  }
+
+  private async applySystemBarColors(): Promise<void> {
+    const context = this.getUIContext().getHostContext();
+    if (!context) return;
+    try {
+      const toHex = (value: number): string => `#${(value >>> 0).toString(16).padStart(8, '0')}`;
+      const background = toHex(context.resourceManager.getColorSync($r('app.color.bg').id));
+      const foreground = toHex(context.resourceManager.getColorSync($r('app.color.text_primary').id));
+      const mainWindow = await window.getLastWindow(context);
+      await mainWindow.setWindowSystemBarProperties({
+        statusBarColor: background,
+        navigationBarColor: background,
+        statusBarContentColor: foreground,
+        navigationBarContentColor: foreground
+      });
+    } catch (error) {
+      // System bar styling is best-effort; the app remains usable.
+    }
   }
 
   private async initPrefs(): Promise<void> {
@@ -549,7 +573,7 @@ struct Index {
   build() {
     Scroll() {
       Column({ space: 14 }) {
-        Text('TimePostman 双向互传')
+        Text('时光邮差')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
