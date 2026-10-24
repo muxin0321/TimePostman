@@ -65,6 +65,7 @@ struct Index {
   private downloadDoneBytes: number = 0;
   private downloadTotalBytes: number = 0;
   private speedAt: number = 0;
+  private dragStartOffset: number = 0;
 
   aboutToAppear(): void {
     this.initPrefs();
@@ -174,6 +175,28 @@ struct Index {
     animateTo({ duration: 380, curve: curves.springMotion(0.38, 0.82) }, () => {
       this.activeTab = tab;
       this.trackOffset = tab * this.contentWidth;
+    });
+  }
+
+  private startTabDrag(): void {
+    this.dragStartOffset = this.trackOffset;
+  }
+
+  private updateTabDrag(offsetX: number): void {
+    const next = this.dragStartOffset - offsetX;
+    this.trackOffset = Math.max(0, Math.min(this.contentWidth, next));
+  }
+
+  private endTabDrag(velocityX: number): void {
+    let target = this.trackOffset < this.contentWidth / 2 ? 0 : 1;
+    if (velocityX < -500) {
+      target = 1;
+    } else if (velocityX > 500) {
+      target = 0;
+    }
+    animateTo({ duration: 320, curve: curves.springMotion(0.32, 0.84) }, () => {
+      this.activeTab = target;
+      this.trackOffset = target * this.contentWidth;
     });
   }
 
@@ -724,6 +747,7 @@ struct Index {
           }
           .width('100%')
           .height(this.activeTab === 0 ? this.uploadHeight : this.receiveHeight)
+          .borderRadius(24)
           .clip(true)
           .onAreaChange((oldValue: Area, newValue: Area) => {
             const width = Number(newValue.width);
@@ -731,6 +755,18 @@ struct Index {
               this.contentWidth = width;
             }
           })
+          .parallelGesture(
+            PanGesture({ direction: PanDirection.Horizontal, distance: 8 })
+              .onActionStart(() => {
+                this.startTabDrag();
+              })
+              .onActionUpdate((event: GestureEvent) => {
+                this.updateTabDrag(event.offsetX);
+              })
+              .onActionEnd((event: GestureEvent) => {
+                this.endTabDrag(event.velocityX);
+              })
+          )
         }
 
         Column({ space: 4 }) {
