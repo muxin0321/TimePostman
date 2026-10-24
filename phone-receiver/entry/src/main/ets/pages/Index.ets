@@ -34,10 +34,10 @@ struct Index {
   @State pairCode: string = '';
   @State pairBusy: boolean = false;
   @State activeTab: number = 0;
-  @State selectedTab: number = 0;
-  @State contentOffset: number = 0;
+  @State trackOffset: number = 0;
   @State contentWidth: number = 360;
-  @State switchingTab: boolean = false;
+  @State uploadHeight: number = 360;
+  @State receiveHeight: number = 360;
   @State connectionExpanded: boolean = false;
   @State uploading: boolean = false;
   @State refreshing: boolean = false;
@@ -170,33 +170,10 @@ struct Index {
   }
 
   private switchTab(tab: number): void {
-    if (tab === this.selectedTab || this.switchingTab) return;
-    const direction = tab > this.selectedTab ? 1 : -1;
-    this.switchingTab = true;
-    animateTo({ duration: 400, curve: curves.springMotion(0.4, 0.82) }, () => {
-      this.selectedTab = tab;
-    });
-    animateTo({
-      duration: 120,
-      curve: Curve.EaseIn,
-      onFinish: () => {
-        this.activeTab = tab;
-        this.contentOffset = direction * this.contentWidth;
-        setTimeout(() => {
-          animateTo({
-            duration: 220,
-            curve: curves.springMotion(0.28, 0.86),
-            onFinish: () => {
-              this.contentOffset = 0;
-              this.switchingTab = false;
-            }
-          }, () => {
-            this.contentOffset = 0;
-          });
-        }, 16);
-      }
-    }, () => {
-      this.contentOffset = 0 - direction * this.contentWidth;
+    if (tab === this.activeTab) return;
+    animateTo({ duration: 380, curve: curves.springMotion(0.38, 0.82) }, () => {
+      this.activeTab = tab;
+      this.trackOffset = tab * this.contentWidth;
     });
   }
 
@@ -320,9 +297,7 @@ struct Index {
     this.downloadedCount = 0;
     this.status = '已断开。重新发现电脑，或手动输入电脑 IP。';
     this.activeTab = 0;
-    this.selectedTab = 0;
-    this.contentOffset = 0;
-    this.switchingTab = false;
+    this.trackOffset = 0;
     this.connectionExpanded = false;
     await this.link.reset();
   }
@@ -663,14 +638,14 @@ struct Index {
               .height(40)
               .backgroundColor($r('app.color.accent'))
               .borderRadius(20)
-              .translate({ x: this.selectedTab === 0 ? 0 : '100%' })
+              .translate({ x: this.activeTab === 0 ? 0 : '100%' })
               .animation({ duration: 400, curve: curves.springMotion(0.4, 0.82) })
             Row() {
               Button('上传')
                 .layoutWeight(1)
                 .height(40)
                 .fontSize(13)
-                .fontColor(this.selectedTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
                 .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
@@ -680,7 +655,7 @@ struct Index {
                 .layoutWeight(1)
                 .height(40)
                 .fontSize(13)
-                .fontColor(this.selectedTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
                 .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
@@ -696,8 +671,8 @@ struct Index {
           .borderRadius(24)
           .border({ width: 1, color: $r('app.color.border') })
 
-          Column() {
-            if (this.activeTab === 0) {
+          Stack({ alignContent: Alignment.TopStart }) {
+            Column() {
               UploadCard({
                 uploading: this.uploading,
                 uploadProgress: this.uploadProgress,
@@ -705,7 +680,17 @@ struct Index {
                   this.pickAndUpload();
                 }
               })
-            } else {
+            }
+            .width('100%')
+            .translate({ x: 0 - this.trackOffset })
+            .onAreaChange((oldValue: Area, newValue: Area) => {
+              const height = Number(newValue.height);
+              if (height > 0 && Math.abs(height - this.uploadHeight) > 1) {
+                this.uploadHeight = height;
+              }
+            })
+
+            Column() {
               ReceiveCard({
                 refreshing: this.refreshing,
                 downloading: this.downloading,
@@ -728,9 +713,18 @@ struct Index {
                 onSave: this.handleSave
               })
             }
+            .width('100%')
+            .translate({ x: this.contentWidth - this.trackOffset })
+            .onAreaChange((oldValue: Area, newValue: Area) => {
+              const height = Number(newValue.height);
+              if (height > 0 && Math.abs(height - this.receiveHeight) > 1) {
+                this.receiveHeight = height;
+              }
+            })
           }
           .width('100%')
-          .translate({ x: this.contentOffset })
+          .height(this.activeTab === 0 ? this.uploadHeight : this.receiveHeight)
+          .clip(true)
           .onAreaChange((oldValue: Area, newValue: Area) => {
             const width = Number(newValue.width);
             if (width > 0) {
