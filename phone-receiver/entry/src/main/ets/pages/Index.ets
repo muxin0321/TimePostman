@@ -71,7 +71,7 @@ struct Index {
     this.applyImmersiveLayout();
     setTimeout(() => {
       this.hideSplash();
-    }, 1100);
+    }, 900);
   }
 
   private hideSplash(): void {
@@ -770,30 +770,10 @@ struct Index {
             .width('100%')
             .height('100%')
             .objectFit(ImageFit.Cover)
-          Column({ space: 6 }) {
-            Text('TimePostman')
-              .fontSize(12)
-              .fontWeight(FontWeight.Medium)
-              .letterSpacing(2)
-              .fontColor($r('app.color.text_primary'))
-              .opacity(0.72)
-            Text('时光邮差')
-              .fontSize(32)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('app.color.text_primary'))
-            Text('把时间送回它该在的那一天')
-              .fontSize(12)
-              .fontColor($r('app.color.text_muted'))
-          }
-          .width('100%')
-          .height('100%')
-          .padding({ left: 28, right: 28, top: this.topInset + 96 })
-          .justifyContent(FlexAlign.Start)
-          .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
         .height('100%')
-        .backgroundColor($r('app.color.bg'))
+        .backgroundColor('#020712')
         .opacity(this.splashOpacity)
         .onClick(() => {
           this.hideSplash();
