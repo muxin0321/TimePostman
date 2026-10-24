@@ -49,7 +49,7 @@ entry/build/default/outputs/default/entry-default-signed.hap
 hdc install -r entry/build/default/outputs/default/entry-default-signed.hap
 ```
 
-如果出现 `no signature file`，确认 `build-profile.json5` 的 product 里有 `"signingConfig": "default"`；DevEco 自动签名生成的材料在 `C:\Users\<用户>\.ohos\config`。
+仓库里不提交真实的 `build-profile.json5`（含签名密码和证书路径）。首次构建时把 `build-profile.example.json5` 复制为 `build-profile.json5`，在 DevEco Studio 里生成自动签名（或手动添加 `signingConfigs` 并在 product 中引用 `signingConfig`）。签名材料通常在 `C:\Users\<用户>\.ohos\config`。如果出现 `no signature file`，检查 product 是否引用了 `"signingConfig": "default"`。
 
 ## 使用
 
