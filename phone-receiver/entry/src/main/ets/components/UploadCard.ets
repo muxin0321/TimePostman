@@ -36,6 +36,7 @@ export struct UploadCard {
     .padding(16)
     .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
+    .shadow({ radius: 18, color: $r('app.color.shadow'), offsetY: 5 })
     .alignItems(HorizontalAlign.Start)
   }
 }

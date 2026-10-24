@@ -1,3 +1,5 @@
+import { curves } from '@kit.ArkUI';
+
 @Component
 export struct StatusCard {
   @Prop status: string = '';
@@ -18,7 +20,7 @@ export struct StatusCard {
             .width(18)
             .height(18)
             .color($r('app.color.accent'))
-            .animation({ duration: 220, curve: Curve.EaseOut })
+            .animation({ duration: 300, curve: curves.springMotion(0.3, 0.72) })
         }
         Text(this.status)
           .fontSize(15)
@@ -34,7 +36,7 @@ export struct StatusCard {
           Progress({ value: this.uploadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
             .color($r('app.color.accent'))
-            .animation({ duration: 220, curve: Curve.EaseOut })
+            .animation({ duration: 300, curve: curves.springMotion(0.3, 0.72) })
           Row() {
             Text(this.uploadStage)
               .fontSize(11)
@@ -56,7 +58,7 @@ export struct StatusCard {
           Progress({ value: this.downloadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
             .color($r('app.color.success'))
-            .animation({ duration: 220, curve: Curve.EaseOut })
+            .animation({ duration: 300, curve: curves.springMotion(0.3, 0.72) })
           Row() {
             Text(this.downloadStage)
               .fontSize(11)
@@ -78,6 +80,7 @@ export struct StatusCard {
     .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
     .border({ width: 1, color: $r('app.color.border') })
+    .shadow({ radius: 18, color: $r('app.color.shadow'), offsetY: 5 })
     .alignItems(HorizontalAlign.Start)
   }
 }

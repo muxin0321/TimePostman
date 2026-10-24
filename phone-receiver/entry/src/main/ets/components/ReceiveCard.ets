@@ -1,3 +1,4 @@
+import { curves } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { OutboxFile } from '../model/Types';
 
@@ -10,6 +11,8 @@ export struct ReceiveCard {
   @Prop outboxFiles: OutboxFile[] = [];
   @Prop outboxExpanded: boolean = false;
   @Prop downloadedCount: number = 0;
+  @Prop baseUrl: string = '';
+  @Prop token: string = '';
   onRefresh: () => void = () => {};
   onDownload: () => void = () => {};
   onToggleExpand: () => void = () => {};
@@ -37,6 +40,10 @@ export struct ReceiveCard {
 
   private visibleFiles(): OutboxFile[] {
     return this.outboxExpanded ? this.outboxFiles : this.outboxFiles.slice(0, 5);
+  }
+
+  private previewUrl(item: OutboxFile): string {
+    return `${this.baseUrl}/api/outbox/file?run=${encodeURIComponent(this.outboxRun)}&path=${encodeURIComponent(item.relativePath)}&token=${encodeURIComponent(this.token)}`;
   }
 
   build() {
@@ -90,7 +97,7 @@ export struct ReceiveCard {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
-        .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.36, 0.7) }))
       }
       if (this.outboxRun) {
         Text(`批次 ${this.outboxRun}`)
@@ -104,20 +111,33 @@ export struct ReceiveCard {
             .fontWeight(FontWeight.Medium)
             .fontColor($r('app.color.text_secondary'))
           ForEach(this.visibleFiles(), (item: OutboxFile) => {
-            Row({ space: 8 }) {
-              Text(item.kind === 'video' ? '视频' : '图片')
-                .fontSize(10)
-                .fontColor($r('app.color.accent'))
+            Row({ space: 10 }) {
+              if (item.kind === 'image') {
+                Image(this.previewUrl(item))
+                  .width(44)
+                  .height(44)
+                  .borderRadius(9)
+                  .objectFit(ImageFit.Cover)
+                  .backgroundColor($r('app.color.surface_soft'))
+              } else {
+                Column() {
+                  Text('视频')
+                    .fontSize(10)
+                    .fontColor($r('app.color.accent'))
+                }
+                .width(44)
+                .height(44)
+                .borderRadius(9)
                 .backgroundColor($r('app.color.accent_soft'))
-                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                .borderRadius(4)
-              Column({ space: 2 }) {
+                .justifyContent(FlexAlign.Center)
+              }
+              Column({ space: 3 }) {
                 Text(item.name)
                   .fontSize(12)
                   .fontColor($r('app.color.text_secondary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(`${this.formatBytes(item.size)} · ${item.date}`)
+                Text(`${item.kind === 'video' ? '视频' : '图片'} · ${this.formatBytes(item.size)} · ${item.date}`)
                   .fontSize(10)
                   .fontColor($r('app.color.text_faint'))
               }
@@ -125,6 +145,7 @@ export struct ReceiveCard {
               .alignItems(HorizontalAlign.Start)
             }
             .width('100%')
+            .padding({ top: 2, bottom: 2 })
           }, (item: OutboxFile) => item.relativePath)
           if (this.outboxFiles.length > 5) {
             Button(this.outboxExpanded ? '收起列表' : `展开全部 ${this.outboxFiles.length} 个`)
@@ -146,6 +167,7 @@ export struct ReceiveCard {
     .padding(16)
     .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
+    .shadow({ radius: 18, color: $r('app.color.shadow'), offsetY: 5 })
     .alignItems(HorizontalAlign.Start)
   }
 }

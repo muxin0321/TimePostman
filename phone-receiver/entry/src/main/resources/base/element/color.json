@@ -55,6 +55,10 @@
     {
       "name": "border",
       "value": "#E4E9F2"
+    },
+    {
+      "name": "shadow",
+      "value": "#140F172A"
     }
   ]
 }

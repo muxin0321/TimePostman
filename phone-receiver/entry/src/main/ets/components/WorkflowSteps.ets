@@ -1,3 +1,5 @@
+import { curves } from '@kit.ArkUI';
+
 @Component
 export struct WorkflowSteps {
   @Prop active: number = 0;
@@ -30,12 +32,13 @@ export struct WorkflowSteps {
         .fontColor(this.stepNumberColor(index))
         .backgroundColor(this.stepBackground(index))
         .borderRadius(12)
-        .animation({ duration: 220, curve: Curve.EaseOut })
+        .scale({ x: index === this.active ? 1.1 : 1, y: index === this.active ? 1.1 : 1 })
+        .animation({ duration: 300, curve: curves.springMotion(0.32, 0.68) })
       Text(label)
         .fontSize(10)
         .fontColor(this.stepLabelColor(index))
         .fontWeight(index === this.active ? FontWeight.Medium : FontWeight.Normal)
-        .animation({ duration: 220, curve: Curve.EaseOut })
+        .animation({ duration: 280, curve: curves.springMotion(0.3, 0.72) })
     }
     .layoutWeight(1)
   }

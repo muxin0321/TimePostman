@@ -1,3 +1,4 @@
+import { curves } from '@kit.ArkUI';
 import { PcDevice, PC_PORT } from '../model/Types';
 
 @Component
@@ -163,7 +164,7 @@ export struct ConnectionCard {
               .layoutWeight(1)
           }
           .width('100%')
-          .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
+          .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.36, 0.7) }))
         }
       }
       .width('100%')

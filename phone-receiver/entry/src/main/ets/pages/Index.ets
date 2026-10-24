@@ -2,6 +2,7 @@ import { http } from '@kit.NetworkKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { curves } from '@kit.ArkUI';
 import {
   DownloadedFile,
   OutboxFile,
@@ -118,19 +119,19 @@ struct Index {
   }
 
   private setActiveTab(tab: number): void {
-    animateTo({ duration: 180, curve: Curve.EaseOut }, () => {
+    animateTo({ duration: 320, curve: curves.springMotion(0.32, 0.72) }, () => {
       this.activeTab = tab;
     });
   }
 
   private toggleConnectionExpanded(): void {
-    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+    animateTo({ duration: 340, curve: curves.springMotion(0.36, 0.7) }, () => {
       this.connectionExpanded = !this.connectionExpanded;
     });
   }
 
   private toggleOutboxExpanded(): void {
-    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+    animateTo({ duration: 340, curve: curves.springMotion(0.36, 0.7) }, () => {
       this.outboxExpanded = !this.outboxExpanded;
     });
   }
@@ -583,7 +584,7 @@ struct Index {
               .fontSize(13)
               .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 0 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 180, curve: Curve.EaseOut })
+              .animation({ duration: 280, curve: curves.springMotion(0.3, 0.7) })
               .onClick(() => {
                 this.setActiveTab(0);
               })
@@ -593,7 +594,7 @@ struct Index {
               .fontSize(13)
               .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 1 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 180, curve: Curve.EaseOut })
+              .animation({ duration: 280, curve: curves.springMotion(0.3, 0.7) })
               .onClick(() => {
                 this.setActiveTab(1);
               })
@@ -621,6 +622,8 @@ struct Index {
               outboxFiles: this.outboxFiles,
               outboxExpanded: this.outboxExpanded,
               downloadedCount: this.downloadedCount,
+              baseUrl: this.link.baseUrl(),
+              token: this.link.token,
               onRefresh: () => {
                 this.refreshOutbox();
               },
