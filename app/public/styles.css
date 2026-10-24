@@ -475,6 +475,19 @@ input:disabled {
   border-radius: var(--radius-md);
 }
 
+.date-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -4px 0 14px;
+}
+
+.date-preset {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .inline-field {
   display: flex;
   align-items: center;

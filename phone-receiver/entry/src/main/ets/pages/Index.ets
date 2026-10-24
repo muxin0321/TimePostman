@@ -101,6 +101,7 @@ struct Index {
   @State saving: boolean = false;
   @State outboxRun: string = '';
   @State outboxFiles: OutboxFile[] = [];
+  @State outboxExpanded: boolean = false;
   @State downloadedCount: number = 0;
   @State uploadProgress: number = 0;
   @State uploadStage: string = '';
@@ -216,6 +217,10 @@ struct Index {
 
   private isUsbHost(): boolean {
     return this.pcHost === '127.0.0.1';
+  }
+
+  private visibleOutboxFiles(): OutboxFile[] {
+    return this.outboxExpanded ? this.outboxFiles : this.outboxFiles.slice(0, 5);
   }
 
   private async saveHostPrefs(): Promise<void> {
@@ -680,6 +685,7 @@ struct Index {
       const data = JSON.parse(response.result as string) as OutboxResponse;
       this.outboxRun = data.run || '';
       this.outboxFiles = data.files || [];
+      this.outboxExpanded = false;
       await this.removeDownloadedCache();
       this.downloaded = [];
       this.downloadedCount = 0;
@@ -1159,7 +1165,7 @@ struct Index {
                 })
                 .enabled(!this.refreshing)
                 .layoutWeight(1)
-              Button(this.downloading ? `下载中 ${this.downloadProgress}%` : '下载全部结果')
+              Button(this.downloading ? `下载中 ${this.downloadProgress}%` : `下载全部结果 (${this.outboxFiles.length})`)
                 .onClick(() => {
                   this.downloadOutbox();
                 })
@@ -1194,7 +1200,7 @@ struct Index {
                   .fontSize(13)
                   .fontWeight(FontWeight.Medium)
                   .fontColor('#344054')
-                ForEach(this.outboxFiles, (item: OutboxFile) => {
+                ForEach(this.visibleOutboxFiles(), (item: OutboxFile) => {
                   Row({ space: 8 }) {
                     Text(item.kind === 'video' ? '视频' : '图片')
                       .fontSize(10)
@@ -1217,6 +1223,14 @@ struct Index {
                   }
                   .width('100%')
                 }, (item: OutboxFile) => item.relativePath)
+                if (this.outboxFiles.length > 5) {
+                  Button(this.outboxExpanded ? '收起列表' : `展开全部 ${this.outboxFiles.length} 个`)
+                    .fontSize(12)
+                    .width('100%')
+                    .onClick(() => {
+                      this.outboxExpanded = !this.outboxExpanded;
+                    })
+                }
               }
               .width('100%')
               .padding(10)

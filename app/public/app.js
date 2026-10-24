@@ -585,12 +585,13 @@ function finishJob(job) {
         : unchanged
           ? `目标日期与当前日期相同（${actual}），没有发生变化`
           : `已写入 ${actual}`;
+      const outputName = result.output ? result.output.split("/").pop() : "";
       return `
         <div class="result-item">
           <span class="result-icon" aria-hidden="true"></span>
           <div class="result-body">
             <div class="result-path">${escapeHtml(result.relativePath)}</div>
-            <div class="result-note">${escapeHtml(note)}</div>
+            <div class="result-note">${escapeHtml(note)}${outputName ? ` · 输出：${escapeHtml(outputName)}` : ""}</div>
           </div>
         </div>
       `;
@@ -676,6 +677,15 @@ async function cleanupOutputs() {
   }
 }
 
+function applyDatePreset(offsetDays) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const pad = (value) => String(value).padStart(2, "0");
+  const value = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T12:00`;
+  bulkDate.value = value;
+  showToast(`已填入 ${value.replace("T", " ")}，点“应用到已选”生效。`, "success");
+}
+
 function bindEvents() {
   browseSourceBtn.addEventListener("click", () => browseFolder(sourceInput, browseSourceBtn));
   browseOutputBtn.addEventListener("click", () => browseFolder(outputInput, browseOutputBtn));
@@ -731,6 +741,11 @@ function bindEvents() {
     if (event.key === "Enter") applyBulkDate();
   });
   applyBulkBtn.addEventListener("click", applyBulkDate);
+  for (const button of document.querySelectorAll(".date-preset")) {
+    button.addEventListener("click", () => {
+      applyDatePreset(Number(button.dataset.offset) || 0);
+    });
+  }
   resetDatesBtn.addEventListener("click", resetDates);
   selectAll.addEventListener("change", () => setAllSelected(selectAll.checked));
   processBtn.addEventListener("click", startProcess);
