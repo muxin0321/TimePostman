@@ -18,3 +18,5 @@ phone-receiver/entry/build/
 *.log
 
 phone-receiver/build-profile.json5
+
+vibe_images/

@@ -54,6 +54,8 @@ struct Index {
   @State speedText: string = '';
   @State topInset: number = 0;
   @State bottomInset: number = 0;
+  @State showSplash: boolean = true;
+  @State splashOpacity: number = 1;
   private link: PcLink = new PcLink();
   private pairHost: string = '';
   private pairPort: number = PC_PORT;
@@ -67,6 +69,22 @@ struct Index {
   aboutToAppear(): void {
     this.initPrefs();
     this.applyImmersiveLayout();
+    setTimeout(() => {
+      this.hideSplash();
+    }, 1100);
+  }
+
+  private hideSplash(): void {
+    if (!this.showSplash) return;
+    animateTo({
+      duration: 420,
+      curve: curves.springMotion(0.32, 0.9),
+      onFinish: () => {
+        this.showSplash = false;
+      }
+    }, () => {
+      this.splashOpacity = 0;
+    });
   }
 
   onPageShow(): void {
@@ -576,7 +594,8 @@ struct Index {
   };
 
   build() {
-    Scroll() {
+    Stack() {
+      Scroll() {
       Column({ space: 14 }) {
         Text('TimePostman 时光邮差')
           .fontSize(24)
@@ -744,5 +763,45 @@ struct Index {
     .height('100%')
     .backgroundColor($r('app.color.bg'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+
+      if (this.showSplash) {
+        Stack() {
+          Image($r('app.media.splash'))
+            .width('100%')
+            .height('100%')
+            .objectFit(ImageFit.Cover)
+          Column({ space: 6 }) {
+            Text('TimePostman')
+              .fontSize(12)
+              .fontWeight(FontWeight.Medium)
+              .letterSpacing(2)
+              .fontColor($r('app.color.text_primary'))
+              .opacity(0.72)
+            Text('时光邮差')
+              .fontSize(32)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('app.color.text_primary'))
+            Text('把时间送回它该在的那一天')
+              .fontSize(12)
+              .fontColor($r('app.color.text_muted'))
+          }
+          .width('100%')
+          .height('100%')
+          .padding({ left: 28, right: 28, top: this.topInset + 96 })
+          .justifyContent(FlexAlign.Start)
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor($r('app.color.bg'))
+        .opacity(this.splashOpacity)
+        .onClick(() => {
+          this.hideSplash();
+        })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 }
