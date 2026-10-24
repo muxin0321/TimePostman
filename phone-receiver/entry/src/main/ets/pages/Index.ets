@@ -66,6 +66,7 @@ struct Index {
   private downloadTotalBytes: number = 0;
   private speedAt: number = 0;
   private dragStartOffset: number = 0;
+  private transferCount: number = 0;
 
   aboutToAppear(): void {
     this.initPrefs();
@@ -86,6 +87,18 @@ struct Index {
     }, () => {
       this.splashOpacity = 0;
     });
+  }
+
+  private async updateKeepScreenOn(active: boolean): Promise<void> {
+    this.transferCount = Math.max(0, this.transferCount + (active ? 1 : -1));
+    const context = this.getUIContext().getHostContext();
+    if (!context) return;
+    try {
+      const mainWindow = await window.getLastWindow(context);
+      await mainWindow.setWindowKeepScreenOn(this.transferCount > 0);
+    } catch (error) {
+      // Keep-screen is best-effort.
+    }
   }
 
   onPageShow(): void {
@@ -308,6 +321,7 @@ struct Index {
   }
 
   private async resetPairing(): Promise<void> {
+    await this.removeDownloadedCache();
     this.paired = false;
     this.pendingPair = false;
     this.pcHost = '';
@@ -315,6 +329,7 @@ struct Index {
     this.pendingRequestId = '';
     this.pairCode = '';
     this.discovered = [];
+    this.outboxRun = '';
     this.outboxFiles = [];
     this.downloaded = [];
     this.downloadedCount = 0;
@@ -337,6 +352,7 @@ struct Index {
       return;
     }
     this.uploading = true;
+    void this.updateKeepScreenOn(true);
     this.uploadProgress = 0;
     this.uploadStage = '正在打开相册…';
     this.uploadBytes = 0;
@@ -402,6 +418,11 @@ struct Index {
       });
       const skippedNote = skipped > 0 ? `，${skipped} 个超过 300MB 已跳过` : '';
       const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
+      await this.removeDownloadedCache();
+      this.downloaded = [];
+      this.downloadedCount = 0;
+      this.outboxRun = '';
+      this.outboxFiles = [];
       this.uploadProgress = 100;
       this.uploadStage = '上传完成';
       this.switchTab(1);
@@ -415,6 +436,7 @@ struct Index {
     } finally {
       await MediaCache.remove(staged);
       this.uploading = false;
+      void this.updateKeepScreenOn(false);
     }
   }
 
@@ -431,12 +453,10 @@ struct Index {
       this.outboxRun = data.run || '';
       this.outboxFiles = data.files || [];
       this.outboxExpanded = false;
-      await this.removeDownloadedCache();
-      this.downloaded = [];
-      this.downloadedCount = 0;
+      const kept = this.downloadedCount > 0 ? `已下载的 ${this.downloadedCount} 个结果仍可保存。` : '';
       this.status = this.outboxFiles.length === 0
-        ? '电脑上还没有处理结果。先上传照片，在电脑上处理后再刷新。'
-        : `找到 ${this.outboxFiles.length} 个结果，点“下载全部结果”。`;
+        ? `电脑上还没有处理结果。先上传照片，在电脑上处理后再刷新。${kept}`
+        : `找到 ${this.outboxFiles.length} 个结果，点“下载全部结果”。${kept}`;
       if (this.outboxFiles.length > 0) {
         this.switchTab(1);
       }
@@ -484,6 +504,7 @@ struct Index {
       return;
     }
     this.downloading = true;
+    void this.updateKeepScreenOn(true);
     await this.removeDownloadedCache();
     this.downloaded = [];
     this.downloadedCount = 0;
@@ -556,6 +577,7 @@ struct Index {
         : `下载失败：${e.message || '未知错误'}`;
     } finally {
       this.downloading = false;
+      void this.updateKeepScreenOn(false);
     }
   }
 
@@ -576,9 +598,11 @@ struct Index {
       return;
     }
     this.saving = true;
+    void this.updateKeepScreenOn(true);
     const context = this.getUIContext().getHostContext();
     if (!context) {
       this.saving = false;
+      void this.updateKeepScreenOn(false);
       this.status = '获取应用上下文失败。';
       return;
     }
@@ -586,6 +610,7 @@ struct Index {
     this.downloaded = resultData.failed;
     this.downloadedCount = resultData.failed.length;
     this.saving = false;
+    void this.updateKeepScreenOn(false);
     this.status = resultData.failed.length === 0
       ? `已全部保存 ${resultData.ok} 个到图库。请到系统图库检查日期。`
       : `已保存 ${resultData.ok} 个，失败 ${resultData.failed.length} 个；请再点一次系统保存重试。`;
@@ -674,7 +699,7 @@ struct Index {
                 .onClick(() => {
                   this.switchTab(0);
                 })
-              Button('接收结果')
+              Button(this.outboxFiles.length > 0 ? `接收结果 (${this.outboxFiles.length})` : '接收结果')
                 .layoutWeight(1)
                 .height(40)
                 .fontSize(13)
