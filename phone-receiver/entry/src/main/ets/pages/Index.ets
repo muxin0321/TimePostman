@@ -34,6 +34,7 @@ struct Index {
   @State pairCode: string = '';
   @State pairBusy: boolean = false;
   @State activeTab: number = 0;
+  @State slideDirection: number = 1;
   @State connectionExpanded: boolean = false;
   @State uploading: boolean = false;
   @State refreshing: boolean = false;
@@ -119,7 +120,10 @@ struct Index {
   }
 
   private setActiveTab(tab: number): void {
-    animateTo({ duration: 280, curve: curves.springMotion(0.28, 0.78) }, () => {
+    if (tab === this.activeTab) return;
+    const direction = tab > this.activeTab ? 1 : -1;
+    animateTo({ duration: 400, curve: curves.springMotion(0.4, 0.82) }, () => {
+      this.slideDirection = direction;
       this.activeTab = tab;
     });
   }
@@ -584,7 +588,7 @@ struct Index {
               .backgroundColor($r('app.color.accent'))
               .borderRadius(20)
               .translate({ x: this.activeTab === 0 ? 0 : '100%' })
-              .animation({ duration: 280, curve: curves.springMotion(0.28, 0.78) })
+              .animation({ duration: 400, curve: curves.springMotion(0.4, 0.82) })
             Row() {
               Button('上传')
                 .layoutWeight(1)
@@ -592,7 +596,7 @@ struct Index {
                 .fontSize(13)
                 .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
-                .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
+                .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
                   this.setActiveTab(0);
                 })
@@ -602,7 +606,7 @@ struct Index {
                 .fontSize(13)
                 .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
-                .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
+                .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
                   this.setActiveTab(1);
                 })
@@ -628,9 +632,10 @@ struct Index {
             }
             .width('100%')
             .transition(
-              TransitionEffect.OPACITY
-                .combine(TransitionEffect.translate({ y: 8 }))
-                .animation({ duration: 240, curve: curves.springMotion(0.32, 0.82) })
+              TransitionEffect.asymmetric(
+                TransitionEffect.translate({ x: this.slideDirection > 0 ? 64 : -64 }),
+                TransitionEffect.translate({ x: this.slideDirection > 0 ? -64 : 64 })
+              ).animation({ duration: 300, curve: curves.springMotion(0.3, 0.86) })
             )
           } else {
             Column() {
@@ -658,9 +663,10 @@ struct Index {
             }
             .width('100%')
             .transition(
-              TransitionEffect.OPACITY
-                .combine(TransitionEffect.translate({ y: 8 }))
-                .animation({ duration: 240, curve: curves.springMotion(0.32, 0.82) })
+              TransitionEffect.asymmetric(
+                TransitionEffect.translate({ x: this.slideDirection > 0 ? 64 : -64 }),
+                TransitionEffect.translate({ x: this.slideDirection > 0 ? -64 : 64 })
+              ).animation({ duration: 300, curve: curves.springMotion(0.3, 0.86) })
             )
           }
         }
