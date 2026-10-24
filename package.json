@@ -1,0 +1,25 @@
+{
+  "name": "timepostman-verify",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "TimePostman HarmonyOS NEXT date/metadata verification toolkit",
+  "scripts": {
+    "app": "node app/server.mjs",
+    "start": "node app/server.mjs",
+    "start:all": "node scripts/start-all.mjs",
+    "phone:transfer": "node phone-transfer/server.mjs",
+    "verify:doctor": "node scripts/verify.mjs doctor",
+    "verify:generate": "node scripts/verify.mjs generate",
+    "verify:prepare": "node scripts/verify.mjs prepare",
+    "verify:inspect": "node scripts/verify.mjs inspect",
+    "verify:real": "node scripts/verify.mjs prepare --input samples/real && node scripts/verify.mjs inspect",
+    "verify:all": "node scripts/verify.mjs all"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "exiftool-vendored": "^39.0.1",
+    "express": "^5.3.0",
+    "multer": "^2.5.0"
+  }
+}

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>TimePostman · 照片视频日期整理</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none">
+            <rect x="5" y="15" width="34" height="23" rx="6" stroke="currentColor" stroke-width="2.4"/>
+            <path d="M8 19.5 22 29l14-9.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="35" cy="13" r="8.5" fill="var(--accent)"/>
+            <path d="M35 9v4.4l3 1.8" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1>TimePostman</h1>
+          <p>把照片和视频的时间，送回它该在的那一天。</p>
+        </div>
+      </div>
+      <div class="top-badge">
+        <span class="dot"></span>
+        本地运行 · 原文件不改动
+      </div>
+    </header>
+
+    <main>
+      <section id="pairingBanner" class="pairing-banner" hidden>
+        <div class="pairing-copy">
+          <p class="eyebrow">首次连接</p>
+          <h2>手机配对请求</h2>
+          <p><strong id="pairingDevice"></strong> 请求连接本机。请在手机 App 里输入下面的配对码：</p>
+          <div class="pairing-code"><code id="pairingCode"></code></div>
+          <p class="pairing-hint">配对码 2 分钟有效。输完后手机即可上传照片。</p>
+        </div>
+        <button id="denyPairingBtn" class="btn ghost" type="button">拒绝</button>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">第一步</p>
+            <h2>选择文件夹</h2>
+            <p class="sub">读取文件内嵌的拍摄时间，生成一批改好日期的副本。</p>
+          </div>
+          <div class="step-chip">1 / 3</div>
+        </div>
+
+        <div class="setup-grid">
+          <label class="field">
+            <span class="label">源文件夹</span>
+            <div class="path-row">
+              <input id="sourceDir" type="text" autocomplete="off" spellcheck="false" placeholder="例如 D:\照片\待整理">
+              <button id="browseSource" class="btn ghost" type="button">浏览…</button>
+            </div>
+            <span class="field-hint">支持 JPG / HEIC / PNG / MP4 / MOV / M4V，包含子文件夹。GIF/WebP 图库不识别日期，会自动跳过。</span>
+          </label>
+
+          <label class="field">
+            <span class="label">输出文件夹</span>
+            <div class="path-row">
+              <input id="outputRoot" type="text" autocomplete="off" spellcheck="false" placeholder="选择存放副本的位置">
+              <button id="browseOutput" class="btn ghost" type="button">浏览…</button>
+            </div>
+            <span class="field-hint">每次处理会新建一个 TimePostman-时间 子文件夹，不覆盖旧结果。</span>
+          </label>
+        </div>
+
+        <div class="setup-actions">
+          <button id="scanBtn" class="btn primary" type="button">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V4h3M14 4h3v3M17 13v3h-3M6 16H3v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.7"/></svg>
+            扫描文件
+          </button>
+          <button id="phoneInboxBtn" class="btn ghost" type="button">
+            手机传入
+          </button>
+          <button id="clearInboxBtn" class="btn ghost" type="button">
+            清空手机传入
+          </button>
+          <span class="hint">时间按 UTC+8 处理 · 手机上传需先运行 npm run phone:transfer</span>
+        </div>
+
+        <div class="output-tools">
+          <span id="outputSummary" class="hint">正在统计输出目录…</span>
+          <button id="cleanupOutputsBtn" class="btn ghost" type="button">清理旧输出</button>
+        </div>
+
+        <div id="scanMessage" class="message" role="status" hidden></div>
+      </section>
+
+      <section id="filesSection" class="card" hidden>
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">第二步</p>
+            <h2>设置目标日期</h2>
+            <p id="fileSummary" class="sub"></p>
+          </div>
+          <div class="step-chip">2 / 3</div>
+        </div>
+
+        <div class="batch-bar">
+          <label class="inline-field">
+            <span>批量设为</span>
+            <input id="bulkDate" type="datetime-local">
+          </label>
+          <button id="applyBulk" class="btn ghost" type="button">应用到已选</button>
+          <button id="resetDates" class="btn ghost" type="button">恢复原日期</button>
+          <div class="spacer"></div>
+          <label class="checkline">
+            <input id="selectAll" type="checkbox">
+            全选
+          </label>
+          <span id="selectedCount" class="muted">已选 0 个</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-check"><span class="visually-hidden">选择</span></th>
+                <th>文件</th>
+                <th>类型</th>
+                <th>大小</th>
+                <th>图库当前日期</th>
+                <th>目标日期（UTC+8）</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="fileRows"></tbody>
+          </table>
+          <div id="emptyState" class="empty-state" hidden>没有找到支持的照片或视频。</div>
+        </div>
+
+        <div class="process-bar">
+          <button id="processBtn" class="btn primary large" type="button" disabled>
+            开始处理
+          </button>
+          <div id="progressWrap" class="progress-wrap" hidden>
+            <div class="progress-track" aria-hidden="true">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <p id="progressText" class="progress-text" role="status"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="resultSection" class="card" hidden>
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">第三步</p>
+            <h2>处理完成</h2>
+            <p id="resultSummary" class="sub"></p>
+          </div>
+          <div class="step-chip">3 / 3</div>
+        </div>
+
+        <div class="output-bar">
+          <button id="openFolderBtn" class="btn primary" type="button">打开输出文件夹</button>
+          <code id="outputDir"></code>
+        </div>
+
+        <div id="resultDetails" class="result-list"></div>
+
+        <div class="transfer-note">
+          <strong>下一步：传到手机</strong>
+          <p>把输出文件夹里的文件传到鸿蒙设备，再保存到系统图库。如果系统不允许直接写入图库目录，可以在手机文件管理里手动移入。不要用微信/QQ 转发，避免二次压缩或改写元数据。</p>
+        </div>
+      </section>
+
+      <details class="card help">
+        <summary>
+          <span>使用说明与注意事项</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </summary>
+        <div class="help-body">
+          <div class="help-grid">
+            <div>
+              <h3>它会改什么</h3>
+              <p>照片写入 EXIF 拍摄时间、创建时间、修改时间和 XMP 日期；视频写入影片级、轨道级、媒体级时间以及 Keys 创建时间。同时把输出文件的系统时间设为同一个目标日期。</p>
+            </div>
+            <div>
+              <h3>原文件安全吗</h3>
+              <p>安全。工具只读取源文件夹，在输出文件夹里生成副本；不会覆盖、移动或删除原文件。</p>
+            </div>
+            <div>
+              <h3>时间基准</h3>
+              <p>所有目标时间按 UTC+8 解释。当前日期优先读取内嵌元数据；元数据缺失时会回退到文件时间，并在表格里标记来源。目标日期默认等于当前日期，要改变日期请在“批量设为”里选好并点“应用到已选”，或直接改单行目标日期。</p>
+            </div>
+            <div>
+              <h3>已验证范围</h3>
+              <p>JPG 和 MP4（含华为相机、微信保存的文件）已在 HarmonyOS NEXT 真机验证。HEIC、PNG、MOV 尚未真机验证，建议先小批量测试。华为相机照片的 MakerNote 可能触发 ExifTool 结构警告，不影响日期字段；工具会回读实际日期确认。</p>
+            </div>
+            <div>
+              <h3>手机互传</h3>
+              <p>先在另一个终端运行 npm run phone:transfer。手机 App 首次连接时点“发现电脑”，这里会出现配对请求和 6 位配对码；在手机里输入即可。配对后手机上传照片，点“手机传入”扫描 phone-inbox；处理完成后手机刷新结果并保存。USB 测试可用 hdc rport tcp:8787 tcp:8787；Wi-Fi 直接自动发现。</p>
+            </div>
+          </div>
+          <div class="help-callout">
+            <strong>建议流程</strong>
+            <p>先选 3 到 5 个文件试一次，确认手机图库显示正确后，再批量处理整个相册。如果手机图库已经有同名照片，建议先改文件名或放进一个新相册，避免图库继续显示旧条目。</p>
+          </div>
+        </div>
+      </details>
+    </main>
+
+    <footer>TimePostman · 本地处理，不上传任何文件 · <span id="appVersion"></span></footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
