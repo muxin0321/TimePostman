@@ -53,7 +53,7 @@ export struct WorkflowSteps {
     .width('100%')
     .padding({ left: 8, right: 8, top: 10, bottom: 10 })
     .backgroundColor($r('app.color.surface'))
-    .borderRadius(14)
+    .borderRadius(28)
     .border({ width: 1, color: $r('app.color.border') })
   }
 }

@@ -582,7 +582,7 @@ struct Index {
               .width('50%')
               .height(40)
               .backgroundColor($r('app.color.accent'))
-              .borderRadius(9)
+              .borderRadius(20)
               .translate({ x: this.activeTab === 0 ? 0 : '100%' })
               .animation({ duration: 280, curve: curves.springMotion(0.28, 0.78) })
             Row() {
@@ -613,7 +613,7 @@ struct Index {
           .height(48)
           .padding(4)
           .backgroundColor($r('app.color.surface'))
-          .borderRadius(12)
+          .borderRadius(24)
           .border({ width: 1, color: $r('app.color.border') })
 
           if (this.activeTab === 0) {
@@ -675,6 +675,10 @@ struct Index {
             .fontColor($r('app.color.text_faint'))
         }
         .width('100%')
+        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+        .backgroundColor($r('app.color.surface'))
+        .borderRadius(24)
+        .border({ width: 1, color: $r('app.color.border') })
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')

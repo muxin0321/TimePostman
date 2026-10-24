@@ -116,7 +116,7 @@ export struct ConnectionCard {
       .width('100%')
       .padding(16)
       .backgroundColor($r('app.color.surface'))
-      .borderRadius(14)
+      .borderRadius(22)
       .alignItems(HorizontalAlign.Start)
     } else {
       Column({ space: 8 }) {
@@ -170,7 +170,7 @@ export struct ConnectionCard {
       .width('100%')
       .padding(12)
       .backgroundColor($r('app.color.success_soft'))
-      .borderRadius(12)
+      .borderRadius(24)
     }
   }
 }
