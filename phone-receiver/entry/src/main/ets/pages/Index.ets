@@ -52,6 +52,8 @@ struct Index {
   @State downloadProgress: number = 0;
   @State downloadStage: string = '';
   @State speedText: string = '';
+  @State topInset: number = 0;
+  @State bottomInset: number = 0;
   private link: PcLink = new PcLink();
   private pairHost: string = '';
   private pairPort: number = PC_PORT;
@@ -64,29 +66,32 @@ struct Index {
 
   aboutToAppear(): void {
     this.initPrefs();
-    this.applySystemBarColors();
+    this.applyImmersiveLayout();
   }
 
   onPageShow(): void {
-    this.applySystemBarColors();
+    this.applyImmersiveLayout();
   }
 
-  private async applySystemBarColors(): Promise<void> {
+  private async applyImmersiveLayout(): Promise<void> {
     const context = this.getUIContext().getHostContext();
     if (!context) return;
     try {
       const toHex = (value: number): string => `#${(value >>> 0).toString(16).padStart(8, '0')}`;
-      const background = toHex(context.resourceManager.getColorSync($r('app.color.bg').id));
       const foreground = toHex(context.resourceManager.getColorSync($r('app.color.text_primary').id));
       const mainWindow = await window.getLastWindow(context);
+      await mainWindow.setWindowLayoutFullScreen(true);
       await mainWindow.setWindowSystemBarProperties({
-        statusBarColor: background,
-        navigationBarColor: background,
+        statusBarColor: '#00000000',
+        navigationBarColor: '#00000000',
         statusBarContentColor: foreground,
         navigationBarContentColor: foreground
       });
+      const avoidArea = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      this.topInset = px2vp(avoidArea.topRect.height);
+      this.bottomInset = px2vp(avoidArea.bottomRect.height);
     } catch (error) {
-      // System bar styling is best-effort; the app remains usable.
+      // Immersive layout is best-effort; the app remains usable.
     }
   }
 
@@ -573,7 +578,7 @@ struct Index {
   build() {
     Scroll() {
       Column({ space: 14 }) {
-        Text('时光邮差')
+        Text('TimePostman 时光邮差')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('app.color.text_primary'))
@@ -732,11 +737,12 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .padding(24)
+      .padding({ left: 24, right: 24, top: this.topInset + 16, bottom: this.bottomInset + 20 })
       .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.bg'))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 }
