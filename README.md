@@ -91,9 +91,16 @@ npm run start:all
 
 ### 代码结构
 
-- `app/server.mjs`：本地 HTTP 服务、扫描/处理 API、任务进度。
+- `app/server.mjs`：本地 HTTP 服务、扫描/处理 API、任务进度、输出清理。
 - `app/lib/media-dates.mjs`：媒体扫描、日期读取、元数据写入。
 - `app/public/`：网页界面。
+- `phone-transfer/server.mjs`：局域网互传、配对、上传暂存与批次替换。
+- `phone-receiver/entry/src/main/ets/model/Types.ets`：共享类型和常量。
+- `phone-receiver/entry/src/main/ets/service/PcLink.ets`：网络与配对、偏好存储、上传/下载。
+- `phone-receiver/entry/src/main/ets/service/MediaCache.ets`：格式识别、缓存暂存与清理。
+- `phone-receiver/entry/src/main/ets/service/GallerySaver.ets`：缓存文件写入系统图库。
+- `phone-receiver/entry/src/main/ets/components/`：状态卡、上传卡等 UI 组件。
+- `phone-receiver/entry/src/main/ets/pages/Index.ets`：页面状态编排与接收结果 UI。
 - `scripts/verify.mjs`：可行性验证 CLI，保留用于回归测试和格式验证。
 
 ## 手机双向互传（最小闭环已验证）

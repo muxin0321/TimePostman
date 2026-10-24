@@ -1,85 +1,19 @@
-import { http, socket } from '@kit.NetworkKit';
+import { http } from '@kit.NetworkKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileIo } from '@kit.CoreFileKit';
-import { preferences } from '@kit.ArkData';
 import { BusinessError } from '@kit.BasicServicesKit';
-
-const PC_PORT: number = 8787;
-const DISCOVERY_PORT: number = 8786;
-
-interface UploadedFile {
-  name: string;
-  size: number;
-}
-
-interface UploadResponse {
-  count: number;
-  files: UploadedFile[];
-}
-
-interface OutboxFile {
-  name: string;
-  relativePath: string;
-  kind: string;
-  ext: string;
-  date: string;
-  size: number;
-}
-
-interface OutboxResponse {
-  run: string;
-  files: OutboxFile[];
-}
-
-interface ErrorResponse {
-  error?: string;
-}
-
-interface PcDevice {
-  name: string;
-  host: string;
-  port: number;
-}
-
-interface DiscoveryReply {
-  service: string;
-  name: string;
-  port: number;
-}
-
-interface PairRequestResponse {
-  requestId: string;
-  expiresAt: number;
-}
-
-interface PairConfirmResponse {
-  token: string;
-  port: number;
-  name: string;
-}
-
-interface UdpMessage {
-  message: ArrayBuffer;
-  remoteInfo: socket.SocketRemoteInfo;
-}
-
-class DownloadedFile {
-  name: string;
-  title: string;
-  kind: string;
-  ext: string;
-  date: string;
-  filePath: string;
-
-  constructor(name: string, kind: string, ext: string, date: string, filePath: string) {
-    this.name = name;
-    this.title = name.includes('.') ? name.substring(0, name.lastIndexOf('.')) : name;
-    this.kind = kind;
-    this.ext = ext;
-    this.date = date;
-    this.filePath = filePath;
-  }
-}
+import {
+  DownloadedFile,
+  OutboxFile,
+  PcDevice,
+  PC_PORT,
+  UploadResponse
+} from '../model/Types';
+import { httpErrorMessage, PcLink } from '../service/PcLink';
+import { MediaCache } from '../service/MediaCache';
+import { GallerySaver } from '../service/GallerySaver';
+import { StatusCard } from '../components/StatusCard';
+import { UploadCard } from '../components/UploadCard';
 
 @Entry
 @Component
@@ -108,13 +42,10 @@ struct Index {
   @State downloadProgress: number = 0;
   @State downloadStage: string = '';
   @State speedText: string = '';
-  private token: string = '';
-  private prefs: preferences.Preferences | null = null;
+  private link: PcLink = new PcLink();
   private pairHost: string = '';
   private pairPort: number = PC_PORT;
-  private wifiHost: string = '';
   private pendingRequestId: string = '';
-  private deviceName: string = 'HarmonyOS 手机';
   private downloaded: DownloadedFile[] = [];
   private uploadBytes: number = 0;
   private downloadDoneBytes: number = 0;
@@ -129,21 +60,11 @@ struct Index {
     try {
       const context = this.getUIContext().getHostContext();
       if (!context) return;
-      this.prefs = await preferences.getPreferences(context, 'timepostman');
-      this.pcHost = String(this.prefs.getSync('pcHost', '') ?? '');
-      this.pcPort = Number(this.prefs.getSync('pcPort', PC_PORT) ?? PC_PORT);
-      this.wifiHost = String(this.prefs.getSync('wifiHost', '') ?? '');
-      if (!this.wifiHost && this.pcHost && this.pcHost !== '127.0.0.1') {
-        this.wifiHost = this.pcHost;
-      }
-      this.token = String(this.prefs.getSync('token', '') ?? '');
-      this.deviceId = String(this.prefs.getSync('deviceId', '') ?? '');
-      if (!this.deviceId) {
-        this.deviceId = `tp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-        this.prefs.putSync('deviceId', this.deviceId);
-        await this.prefs.flush();
-      }
-      this.paired = Boolean(this.pcHost && this.token);
+      await this.link.init(context);
+      this.pcHost = this.link.host;
+      this.pcPort = this.link.port;
+      this.deviceId = this.link.deviceId;
+      this.paired = this.link.isPaired();
       this.status = this.paired
         ? '准备就绪：选择照片或视频开始。'
         : '首次连接：点“发现电脑”，然后在电脑页面读取配对码。';
@@ -153,21 +74,6 @@ struct Index {
     }
   }
 
-  private baseUrl(): string {
-    return `http://${this.pcHost}:${this.pcPort}`;
-  }
-
-  private errorMessage(response: http.HttpResponse): string {
-    try {
-      const body = JSON.parse(response.result as string) as ErrorResponse;
-      if (body.error) {
-        return body.error;
-      }
-    } catch (err) {
-      // Response body is not JSON.
-    }
-    return `HTTP ${response.responseCode}`;
-  }
 
   private formatBytes(value: number): string {
     if (!Number.isFinite(value) || value <= 0) {
@@ -223,63 +129,26 @@ struct Index {
     return this.outboxExpanded ? this.outboxFiles : this.outboxFiles.slice(0, 5);
   }
 
-  private async saveHostPrefs(): Promise<void> {
-    if (!this.prefs) return;
-    this.prefs.putSync('pcHost', this.pcHost);
-    this.prefs.putSync('pcPort', this.pcPort);
-    this.prefs.putSync('wifiHost', this.wifiHost);
-    await this.prefs.flush();
-  }
-
-  private async checkHost(host: string): Promise<boolean> {
-    const request = http.createHttp();
-    try {
-      const response = await request.request(`http://${host}:${PC_PORT}/health`, {
-        method: http.RequestMethod.GET,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 1200,
-        readTimeout: 1200
-      });
-      return response.responseCode === 200;
-    } catch (error) {
-      return false;
-    } finally {
-      request.destroy();
-    }
-  }
-
   private async toggleUsb(): Promise<void> {
-    if (this.isUsbHost()) {
-      if (!this.wifiHost) {
-        this.status = '没有保存 Wi-Fi 地址，请重新配对并输入电脑 IP。';
-        return;
-      }
-      this.pcHost = this.wifiHost;
-      this.pcPort = PC_PORT;
-      await this.saveHostPrefs();
-      this.status = '已切回 Wi-Fi。';
-      return;
+    this.status = this.link.isUsbHost() ? '正在切回 Wi-Fi…' : '正在检测 USB 直连…';
+    try {
+      const usb = await this.link.toggleUsb();
+      this.pcHost = this.link.host;
+      this.pcPort = this.link.port;
+      this.status = usb ? '已切换到 USB 直连，传输会更快。' : '已切回 Wi-Fi。';
+    } catch (error) {
+      const e = error as BusinessError;
+      this.status = e.message || '切换连接方式失败。';
     }
-    this.status = '正在检测 USB 直连…';
-    if (!(await this.checkHost('127.0.0.1'))) {
-      this.status = 'USB 直连不可用：先在电脑运行 hdc rport tcp:8787 tcp:8787。';
-      return;
-    }
-    this.wifiHost = this.pcHost;
-    this.pcHost = '127.0.0.1';
-    this.pcPort = PC_PORT;
-    await this.saveHostPrefs();
-    this.status = '已切换到 USB 直连，传输会更快。';
   }
 
   private async fallbackFromUsb(): Promise<boolean> {
-    if (!this.isUsbHost() || !this.wifiHost) {
-      return false;
+    const switched = await this.link.fallbackFromUsb();
+    if (switched) {
+      this.pcHost = this.link.host;
+      this.pcPort = this.link.port;
     }
-    this.pcHost = this.wifiHost;
-    this.pcPort = PC_PORT;
-    await this.saveHostPrefs();
-    return true;
+    return switched;
   }
 
   private async discover(): Promise<void> {
@@ -287,53 +156,12 @@ struct Index {
     this.discovering = true;
     this.discovered = [];
     this.status = '正在搜索同一局域网内的电脑…';
-    let udp: socket.UDPSocket | null = null;
     try {
-      udp = socket.constructUDPSocketInstance();
-      await udp.bind({ address: '0.0.0.0', port: 0 });
-      await udp.setExtraOptions({ broadcast: true });
-      udp.on('message', (value: UdpMessage) => {
-        try {
-          const bytes = new Uint8Array(value.message);
-          let text = '';
-          for (let index = 0; index < bytes.length; index++) {
-            text += String.fromCharCode(bytes[index]);
-          }
-          const reply = JSON.parse(text) as DiscoveryReply;
-          if (reply.service !== 'timepostman' || !reply.port) return;
-          const host = value.remoteInfo.address;
-          const exists = this.discovered.some((item: PcDevice) => item.host === host && item.port === reply.port);
-          if (!exists) {
-            this.discovered = [...this.discovered, {
-              name: reply.name || 'TimePostman 电脑',
-              host,
-              port: reply.port
-            }];
-          }
-        } catch (err) {
-          // Ignore malformed discovery replies.
-        }
-      });
-      await udp.send({
-        data: 'TIMEPOSTMAN_DISCOVER',
-        address: {
-          address: '255.255.255.255',
-          port: DISCOVERY_PORT
-        }
-      });
-      await new Promise<void>((resolve) => setTimeout(resolve, 2000));
+      this.discovered = await this.link.discover();
     } catch (error) {
       const e = error as BusinessError;
       this.status = `发现失败：${e.message || '未知错误'}。可以手动输入电脑 IP。`;
     } finally {
-      if (udp) {
-        try {
-          udp.off('message');
-          await udp.close();
-        } catch (err) {
-          // Socket may already be closed.
-        }
-      }
       this.discovering = false;
       if (this.discovered.length === 0) {
         this.status = '没有自动发现电脑。请确认同一 Wi-Fi，或手动输入电脑 IP。';
@@ -352,26 +180,8 @@ struct Index {
     }
     this.pairBusy = true;
     this.status = '正在向电脑申请配对…';
-    const request = http.createHttp();
     try {
-      const response = await request.request(`http://${targetHost}:${port}/pair/request`, {
-        method: http.RequestMethod.POST,
-        header: { 'Content-Type': 'application/json' },
-        extraData: JSON.stringify({
-          deviceId: this.deviceId,
-          deviceName: this.deviceName
-        }),
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 10000,
-        readTimeout: 15000
-      });
-      if (response.responseCode !== 200) {
-        throw new Error(this.errorMessage(response));
-      }
-      const data = JSON.parse(response.result as string) as PairRequestResponse;
-      if (!data.requestId) {
-        throw new Error('电脑没有返回配对请求');
-      }
+      const data = await this.link.requestPairing(targetHost, port);
       this.pairHost = targetHost;
       this.pairPort = port;
       this.pendingRequestId = data.requestId;
@@ -382,7 +192,6 @@ struct Index {
       const e = error as BusinessError;
       this.status = `申请配对失败：${e.message || '未知错误'}`;
     } finally {
-      request.destroy();
       this.pairBusy = false;
     }
   }
@@ -394,58 +203,26 @@ struct Index {
       return;
     }
     this.pairBusy = true;
-    const request = http.createHttp();
     try {
-      const response = await request.request(`http://${this.pairHost}:${this.pairPort}/pair/confirm`, {
-        method: http.RequestMethod.POST,
-        header: { 'Content-Type': 'application/json' },
-        extraData: JSON.stringify({
-          requestId: this.pendingRequestId,
-          code: this.pairCode
-        }),
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 10000,
-        readTimeout: 15000
-      });
-      if (response.responseCode !== 200) {
-        throw new Error(this.errorMessage(response));
-      }
-      const data = JSON.parse(response.result as string) as PairConfirmResponse;
-      if (!data.token) {
-        throw new Error('配对失败，没有拿到令牌');
-      }
-      this.token = data.token;
-      this.pcHost = this.pairHost;
-      this.pcPort = data.port || this.pairPort;
-      if (this.pcHost !== '127.0.0.1') {
-        this.wifiHost = this.pcHost;
-      }
+      await this.link.confirmPairing(this.pairHost, this.pairPort, this.pendingRequestId, this.pairCode);
+      this.pcHost = this.link.host;
+      this.pcPort = this.link.port;
       this.paired = true;
       this.pendingPair = false;
-      if (this.prefs) {
-        this.prefs.putSync('pcHost', this.pcHost);
-        this.prefs.putSync('pcPort', this.pcPort);
-        this.prefs.putSync('wifiHost', this.wifiHost);
-        this.prefs.putSync('token', this.token);
-        await this.prefs.flush();
-      }
       this.status = '配对成功，可以开始上传了。';
     } catch (error) {
       const e = error as BusinessError;
       this.status = `配对失败：${e.message || '未知错误'}`;
     } finally {
-      request.destroy();
       this.pairBusy = false;
     }
   }
 
-  private resetPairing(): void {
+  private async resetPairing(): Promise<void> {
     this.paired = false;
     this.pendingPair = false;
-    this.token = '';
     this.pcHost = '';
     this.pcPort = PC_PORT;
-    this.wifiHost = '';
     this.pendingRequestId = '';
     this.pairCode = '';
     this.discovered = [];
@@ -453,97 +230,12 @@ struct Index {
     this.downloaded = [];
     this.downloadedCount = 0;
     this.status = '已断开。重新发现电脑，或手动输入电脑 IP。';
-    if (this.prefs) {
-      this.prefs.putSync('pcHost', '');
-      this.prefs.putSync('wifiHost', '');
-      this.prefs.putSync('token', '');
-      this.prefs.flush();
-    }
-  }
-
-  private extensionOf(uri: string): string {
-    const match = /\.([a-zA-Z0-9]+)(?:\?|$)/.exec(uri);
-    return match && match[1] ? match[1].toLowerCase() : 'jpg';
-  }
-
-  private detectExtension(buffer: ArrayBuffer, uri: string): string {
-    const length = Math.min(buffer.byteLength, 16);
-    const bytes = new Uint8Array(buffer, 0, length);
-    if (length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
-      return 'jpg';
-    }
-    if (length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
-      return 'png';
-    }
-    if (length >= 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
-      const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-      if (brand.startsWith('heic') || brand.startsWith('heix') || brand.startsWith('hevc')
-        || brand.startsWith('hevx') || brand.startsWith('mif1') || brand.startsWith('msf1')) {
-        return 'heic';
-      }
-      if (brand === 'qt  ') {
-        return 'mov';
-      }
-      if (brand === 'M4V ') {
-        return 'm4v';
-      }
-      return 'mp4';
-    }
-    return this.extensionOf(uri);
-  }
-
-  private contentTypeOf(ext: string): string {
-    switch (ext) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'heic':
-      case 'heif':
-        return 'image/heic';
-      case 'mov':
-        return 'video/quicktime';
-      case 'm4v':
-        return 'video/x-m4v';
-      case 'mp4':
-        return 'video/mp4';
-      default:
-        return 'application/octet-stream';
-    }
-  }
-
-  private async copyToCache(uri: string, dest: string): Promise<void> {
-    const src = await fileIo.open(uri, fileIo.OpenMode.READ_ONLY);
-    try {
-      await fileIo.copyFile(src.fd, dest);
-    } finally {
-      await fileIo.close(src.fd);
-    }
-  }
-
-  private sourceFileName(uri: string, index: number, ext: string): string {
-    const cleanUri = uri.split('?')[0];
-    const raw = cleanUri.substring(cleanUri.lastIndexOf('/') + 1);
-    let name = raw;
-    try {
-      name = decodeURIComponent(raw);
-    } catch (error) {
-      name = raw;
-    }
-    name = name.replace(/[\\/:*?"<>|\x00-\x1F]/g, '_').trim();
-    const dot = name.lastIndexOf('.');
-    let base = dot > 0 ? name.substring(0, dot) : name;
-    base = base.replace(/[. ]+$/g, '').slice(0, 80);
-    if (!base) {
-      base = `photo-${Date.now()}-${index}`;
-    }
-    return `${base}.${ext}`;
+    await this.link.reset();
   }
 
   private async pickAndUpload(): Promise<void> {
     if (this.uploading) return;
-    if (!this.paired || !this.token) {
+    if (!this.paired || !this.link.token) {
       this.status = '请先完成电脑配对。';
       return;
     }
@@ -577,30 +269,24 @@ struct Index {
       let unsupported = 0;
       this.uploadBytes = 0;
       for (let index = 0; index < result.photoUris.length; index++) {
-        const uri = result.photoUris[index];
-        const file = await fileIo.open(uri, fileIo.OpenMode.READ_ONLY);
-        const stat = await fileIo.stat(file.fd);
-        const head = new ArrayBuffer(16);
-        await fileIo.read(file.fd, head);
-        await fileIo.close(file.fd);
-        const ext = this.detectExtension(head, uri);
-        if (ext === 'gif' || ext === 'webp') {
+        const file = await MediaCache.stage(result.photoUris[index], context.cacheDir, stamp, index);
+        if (MediaCache.isUnsupported(file.ext)) {
           unsupported += 1;
+          await MediaCache.remove([file.path]);
           continue;
         }
-        if (stat.size > 300 * 1024 * 1024) {
+        if (MediaCache.isTooLarge(file.size)) {
           skipped += 1;
+          await MediaCache.remove([file.path]);
           continue;
         }
-        const cachePath = `${context.cacheDir}/tp-upload-${stamp}-${index}.${ext}`;
-        await this.copyToCache(uri, cachePath);
-        this.uploadBytes += stat.size;
-        staged.push(cachePath);
+        staged.push(file.path);
+        this.uploadBytes += file.size;
         formData.push({
           name: 'files',
-          contentType: this.contentTypeOf(ext),
-          remoteFileName: this.sourceFileName(uri, index, ext),
-          filePath: cachePath
+          contentType: file.contentType,
+          remoteFileName: file.name,
+          filePath: file.path
         });
       }
       if (formData.length === 0 || this.uploadBytes === 0) {
@@ -613,38 +299,20 @@ struct Index {
       this.resetSpeed();
       this.uploadStage = `正在上传 ${formData.length} 个文件…`;
       this.status = this.uploadStage;
-      const request = http.createHttp();
-      request.on('dataSendProgress', (info: http.DataSendProgressInfo) => {
-        const current = Math.min(this.uploadBytes, info.sendSize);
-        const percent = this.uploadBytes > 0 ? Math.min(99, Math.round(current * 100 / this.uploadBytes)) : 0;
+      const data = await this.link.upload(formData, this.uploadBytes, (sentBytes: number) => {
+        const percent = this.uploadBytes > 0
+          ? Math.min(99, Math.round(sentBytes * 100 / this.uploadBytes))
+          : 0;
         if (percent !== this.uploadProgress) {
           this.uploadProgress = percent;
         }
-        this.trackSpeed(current);
+        this.trackSpeed(sentBytes);
       });
-      try {
-        const response = await request.request(`${this.baseUrl()}/api/upload?token=${this.token}`, {
-          method: http.RequestMethod.POST,
-          header: { 'Content-Type': 'multipart/form-data' },
-          multiFormDataList: formData,
-          connectTimeout: 10000,
-          readTimeout: 300000
-        });
-        if (response.responseCode !== 200) {
-          throw new Error(this.errorMessage(response));
-        }
-        const data = JSON.parse(response.result as string) as UploadResponse;
-        if (data.count === 0) {
-          throw new Error('电脑没有收到文件（0 个）');
-        }
-        const skippedNote = skipped > 0 ? `，${skipped} 个超过 300MB 已跳过` : '';
-        const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
-        this.uploadProgress = 100;
-        this.uploadStage = '上传完成';
-        this.status = `已上传 ${data.count} 个文件${skippedNote}${unsupportedNote}。去电脑上点“手机传入”并改日期，然后回来刷新结果。`;
-      } finally {
-        request.destroy();
-      }
+      const skippedNote = skipped > 0 ? `，${skipped} 个超过 300MB 已跳过` : '';
+      const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
+      this.uploadProgress = 100;
+      this.uploadStage = '上传完成';
+      this.status = `已上传 ${data.count} 个文件${skippedNote}${unsupportedNote}。去电脑上点“手机传入”并改日期，然后回来刷新结果。`;
     } catch (error) {
       const e = error as BusinessError;
       const switched = await this.fallbackFromUsb();
@@ -652,37 +320,21 @@ struct Index {
         ? `USB 直连中断，已切回 Wi-Fi，请重试。原错误：${e.message || '未知错误'}`
         : `上传失败：${e.message || '未知错误'}`;
     } finally {
-      for (const filePath of staged) {
-        try {
-          await fileIo.unlink(filePath);
-        } catch {
-          // Cache cleanup failure does not affect the upload result.
-        }
-      }
+      await MediaCache.remove(staged);
       this.uploading = false;
     }
   }
 
   private async refreshOutbox(): Promise<void> {
     if (this.refreshing) return;
-    if (!this.paired || !this.token) {
+    if (!this.paired || !this.link.token) {
       this.status = '请先完成电脑配对。';
       return;
     }
     this.refreshing = true;
     this.status = '正在读取电脑上的处理结果…';
-    const request = http.createHttp();
     try {
-      const response = await request.request(`${this.baseUrl()}/api/outbox?token=${this.token}`, {
-        method: http.RequestMethod.GET,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: 10000,
-        readTimeout: 30000
-      });
-      if (response.responseCode !== 200) {
-        throw new Error(this.errorMessage(response));
-      }
-      const data = JSON.parse(response.result as string) as OutboxResponse;
+      const data = await this.link.fetchOutbox();
       this.outboxRun = data.run || '';
       this.outboxFiles = data.files || [];
       this.outboxExpanded = false;
@@ -699,19 +351,16 @@ struct Index {
         ? `USB 直连中断，已切回 Wi-Fi，请重试。原错误：${e.message || '未知错误'}`
         : `刷新失败：${e.message || '未知错误'}`;
     } finally {
-      request.destroy();
       this.refreshing = false;
     }
   }
 
   private async removeDownloadedCache(): Promise<void> {
+    const paths: string[] = [];
     for (const item of this.downloaded) {
-      try {
-        await fileIo.unlink(item.filePath);
-      } catch {
-        // Cache file may already be gone.
-      }
+      paths.push(item.filePath);
     }
+    await MediaCache.remove(paths);
   }
 
   private updateDownloadProgress(): void {
@@ -725,7 +374,7 @@ struct Index {
 
   private async downloadOutbox(): Promise<void> {
     if (this.downloading) return;
-    if (!this.paired || !this.token) {
+    if (!this.paired || !this.link.token) {
       this.status = '请先完成电脑配对。';
       return;
     }
@@ -758,31 +407,24 @@ struct Index {
         this.downloadStage = `正在下载 ${index + 1}/${this.outboxFiles.length}：${item.name}`;
         const ext = (item.ext || 'jpg').toLowerCase();
         currentCachePath = `${context.cacheDir}/tp-result-${Date.now()}-${index}.${ext}`;
-        const url = `${this.baseUrl()}/api/outbox/file?run=${encodeURIComponent(this.outboxRun)}&path=${encodeURIComponent(item.relativePath)}&token=${this.token}`;
-        const request = http.createHttp();
+        const url = `${this.link.baseUrl()}/api/outbox/file?run=${encodeURIComponent(this.outboxRun)}&path=${encodeURIComponent(item.relativePath)}&token=${this.link.token}`;
         const file = await fileIo.open(currentCachePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC);
         let writeFailed = false;
         let writeErrorMessage = '';
-        request.on('dataReceive', (chunk: ArrayBuffer) => {
-          if (writeFailed) return;
-          try {
-            fileIo.writeSync(file.fd, chunk);
-            this.downloadDoneBytes += chunk.byteLength;
-            this.updateDownloadProgress();
-          } catch (error) {
-            writeFailed = true;
-            writeErrorMessage = (error as Error).message;
-          }
-        });
         let responseCode = 0;
         try {
-          responseCode = await request.requestInStream(url, {
-            method: http.RequestMethod.GET,
-            connectTimeout: 10000,
-            readTimeout: 600000
+          responseCode = await this.link.download(url, (chunk: ArrayBuffer) => {
+            if (writeFailed) return;
+            try {
+              fileIo.writeSync(file.fd, chunk);
+              this.downloadDoneBytes += chunk.byteLength;
+              this.updateDownloadProgress();
+            } catch (error) {
+              writeFailed = true;
+              writeErrorMessage = (error as Error).message;
+            }
           });
         } finally {
-          request.destroy();
           await fileIo.close(file.fd);
         }
         if (responseCode !== 200 || writeFailed) {
@@ -844,46 +486,13 @@ struct Index {
       this.status = '获取应用上下文失败。';
       return;
     }
-    const helper = photoAccessHelper.getPhotoAccessHelper(context);
-    let ok = 0;
-    const failed: DownloadedFile[] = [];
-    for (const item of this.downloaded) {
-      try {
-        const photoType = item.kind === 'video'
-          ? photoAccessHelper.PhotoType.VIDEO
-          : photoAccessHelper.PhotoType.IMAGE;
-        const uri = await helper.createAsset(photoType, item.ext, { title: item.title });
-        const src = await fileIo.open(item.filePath, fileIo.OpenMode.READ_ONLY);
-        const dst = await fileIo.open(uri, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
-        try {
-          const buffer = new ArrayBuffer(1024 * 1024);
-          while (true) {
-            const bytesRead = await fileIo.read(src.fd, buffer);
-            if (bytesRead <= 0) {
-              break;
-            }
-            await fileIo.write(dst.fd, buffer.slice(0, bytesRead));
-          }
-        } finally {
-          await fileIo.close(src.fd);
-          await fileIo.close(dst.fd);
-        }
-        try {
-          await fileIo.unlink(item.filePath);
-        } catch {
-          // Cache cleanup failure does not affect the saved asset.
-        }
-        ok += 1;
-      } catch (err) {
-        failed.push(item);
-      }
-    }
-    this.downloaded = failed;
-    this.downloadedCount = failed.length;
+    const resultData = await GallerySaver.save(context, this.downloaded);
+    this.downloaded = resultData.failed;
+    this.downloadedCount = resultData.failed.length;
     this.saving = false;
-    this.status = failed.length === 0
-      ? `已全部保存 ${ok} 个到图库。请到系统图库检查日期。`
-      : `已保存 ${ok} 个，失败 ${failed.length} 个；请再点一次系统保存重试。`;
+    this.status = resultData.failed.length === 0
+      ? `已全部保存 ${resultData.ok} 个到图库。请到系统图库检查日期。`
+      : `已保存 ${resultData.ok} 个，失败 ${resultData.failed.length} 个；请再点一次系统保存重试。`;
   };
 
   build() {
@@ -897,71 +506,17 @@ struct Index {
           .fontSize(14)
           .fontColor('#667085')
 
-        Column({ space: 8 }) {
-          Row({ space: 8 }) {
-            if (this.isBusy()) {
-              LoadingProgress()
-                .width(18)
-                .height(18)
-                .color('#2F6FED')
-            }
-            Text(this.status)
-              .fontSize(15)
-              .fontWeight(FontWeight.Medium)
-              .fontColor('#162033')
-              .layoutWeight(1)
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Center)
-
-          if (this.uploading) {
-            Column({ space: 4 }) {
-              Progress({ value: this.uploadProgress, total: 100, type: ProgressType.Linear })
-                .width('100%')
-                .color('#2F6FED')
-              Row() {
-                Text(this.uploadStage)
-                  .fontSize(11)
-                  .fontColor('#667085')
-                  .layoutWeight(1)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(`${this.uploadProgress}%${this.speedText ? ' · ' + this.speedText : ''}`)
-                  .fontSize(11)
-                  .fontColor('#667085')
-              }
-              .width('100%')
-            }
-            .width('100%')
-          }
-
-          if (this.downloading) {
-            Column({ space: 4 }) {
-              Progress({ value: this.downloadProgress, total: 100, type: ProgressType.Linear })
-                .width('100%')
-                .color('#0F8A5F')
-              Row() {
-                Text(this.downloadStage)
-                  .fontSize(11)
-                  .fontColor('#667085')
-                  .layoutWeight(1)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(`${this.downloadProgress}%${this.speedText ? ' · ' + this.speedText : ''}`)
-                  .fontSize(11)
-                  .fontColor('#667085')
-              }
-              .width('100%')
-            }
-            .width('100%')
-          }
-        }
-        .width('100%')
-        .padding(14)
-        .backgroundColor('#FFFFFF')
-        .borderRadius(14)
-        .border({ width: 1, color: '#E4E9F2' })
-        .alignItems(HorizontalAlign.Start)
+        StatusCard({
+          status: this.status,
+          busy: this.isBusy(),
+          uploading: this.uploading,
+          uploadProgress: this.uploadProgress,
+          uploadStage: this.uploadStage,
+          downloading: this.downloading,
+          downloadProgress: this.downloadProgress,
+          downloadStage: this.downloadStage,
+          speedText: this.speedText
+        })
 
         if (!this.paired) {
           Column({ space: 12 }) {
@@ -1105,38 +660,13 @@ struct Index {
           .backgroundColor('#E7F7F0')
           .borderRadius(12)
 
-          Column({ space: 10 }) {
-            Row({ space: 8 }) {
-              Text('1')
-                .width(24)
-                .height(24)
-                .textAlign(TextAlign.Center)
-                .fontSize(13)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#FFFFFF')
-                .backgroundColor('#2F6FED')
-                .borderRadius(12)
-              Text('上传照片或视频')
-                .fontSize(17)
-                .fontWeight(FontWeight.Medium)
-                .fontColor('#162033')
+          UploadCard({
+            uploading: this.uploading,
+            uploadProgress: this.uploadProgress,
+            onUpload: () => {
+              this.pickAndUpload();
             }
-            .width('100%')
-            Text('选择 1-50 个文件上传到电脑，然后到电脑网页点“手机传入”并设置目标日期。单个文件上限 300MB。')
-              .fontSize(12)
-              .fontColor('#667085')
-            Button(this.uploading ? `上传中 ${this.uploadProgress}%` : '选择照片/视频并上传')
-              .onClick(() => {
-                this.pickAndUpload();
-              })
-              .enabled(!this.uploading)
-              .width('100%')
-          }
-          .width('100%')
-          .padding(16)
-          .backgroundColor('#FFFFFF')
-          .borderRadius(14)
-          .alignItems(HorizontalAlign.Start)
+          })
 
           Column({ space: 10 }) {
             Row({ space: 8 }) {
