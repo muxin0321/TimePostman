@@ -99,8 +99,8 @@ npm run start:all
 - `phone-receiver/entry/src/main/ets/service/PcLink.ets`：网络与配对、偏好存储、上传/下载。
 - `phone-receiver/entry/src/main/ets/service/MediaCache.ets`：格式识别、缓存暂存与清理。
 - `phone-receiver/entry/src/main/ets/service/GallerySaver.ets`：缓存文件写入系统图库。
-- `phone-receiver/entry/src/main/ets/components/`：状态卡、上传卡等 UI 组件。
-- `phone-receiver/entry/src/main/ets/pages/Index.ets`：页面状态编排与接收结果 UI。
+- `phone-receiver/entry/src/main/ets/components/`：状态卡、连接卡、上传卡、结果卡等 UI 组件。
+- `phone-receiver/entry/src/main/ets/pages/Index.ets`：页面状态编排（约 586 行）。
 - `scripts/verify.mjs`：可行性验证 CLI，保留用于回归测试和格式验证。
 
 ## 手机双向互传（最小闭环已验证）

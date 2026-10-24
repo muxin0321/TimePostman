@@ -14,6 +14,8 @@ import { MediaCache } from '../service/MediaCache';
 import { GallerySaver } from '../service/GallerySaver';
 import { StatusCard } from '../components/StatusCard';
 import { UploadCard } from '../components/UploadCard';
+import { ConnectionCard } from '../components/ConnectionCard';
+import { ReceiveCard } from '../components/ReceiveCard';
 
 @Entry
 @Component
@@ -75,22 +77,6 @@ struct Index {
   }
 
 
-  private formatBytes(value: number): string {
-    if (!Number.isFinite(value) || value <= 0) {
-      return '0 B';
-    }
-    if (value >= 1024 * 1024 * 1024) {
-      return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`;
-    }
-    if (value >= 1024 * 1024) {
-      return `${(value / 1024 / 1024).toFixed(1)} MB`;
-    }
-    if (value >= 1024) {
-      return `${Math.round(value / 1024)} KB`;
-    }
-    return `${Math.round(value)} B`;
-  }
-
   private formatSpeed(bytesPerSecond: number): string {
     if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
       return '';
@@ -123,10 +109,6 @@ struct Index {
 
   private isUsbHost(): boolean {
     return this.pcHost === '127.0.0.1';
-  }
-
-  private visibleOutboxFiles(): OutboxFile[] {
-    return this.outboxExpanded ? this.outboxFiles : this.outboxFiles.slice(0, 5);
   }
 
   private async toggleUsb(): Promise<void> {
@@ -518,148 +500,40 @@ struct Index {
           speedText: this.speedText
         })
 
-        if (!this.paired) {
-          Column({ space: 12 }) {
-            Text('连接电脑')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#162033')
-            Text('电脑和手机在同一局域网，打开电脑端程序后点“发现电脑”。USB 连接可手动输入 127.0.0.1。')
-              .fontSize(12)
-              .fontColor('#667085')
-          Button(this.discovering ? '搜索中…' : '发现电脑')
-            .onClick(() => {
-              this.discover();
-            })
-            .enabled(!this.discovering)
-            .width('100%')
-          if (this.discovered.length > 0) {
-            Column({ space: 8 }) {
-              ForEach(this.discovered, (device: PcDevice) => {
-                Row({ space: 10 }) {
-                  Column({ space: 2 }) {
-                    Text(device.name)
-                      .fontSize(14)
-                      .fontWeight(FontWeight.Medium)
-                      .fontColor('#162033')
-                    Text(`${device.host}:${device.port}`)
-                      .fontSize(11)
-                      .fontColor('#98A2B3')
-                  }
-                  .layoutWeight(1)
-                  .alignItems(HorizontalAlign.Start)
-                  Button('配对')
-                    .onClick(() => {
-                      this.requestPairing(device.host, device.port);
-                    })
-                    .enabled(!this.pairBusy)
-                }
-                .width('100%')
-                .padding(10)
-                .backgroundColor('#FFFFFF')
-                .borderRadius(10)
-              }, (device: PcDevice) => `${device.host}:${device.port}`)
-            }
-            .width('100%')
+        ConnectionCard({
+          paired: this.paired,
+          pcHost: this.pcHost,
+          pcPort: this.pcPort,
+          isUsb: this.isUsbHost(),
+          discovering: this.discovering,
+          pairBusy: this.pairBusy,
+          pendingPair: this.pendingPair,
+          discovered: this.discovered,
+          manualHost: $manualHost,
+          pairCode: $pairCode,
+          onDiscover: () => {
+            this.discover();
+          },
+          onPair: (host: string, port: number) => {
+            this.requestPairing(host, port);
+          },
+          onConfirm: () => {
+            this.confirmPairing();
+          },
+          onCancel: () => {
+            this.pendingPair = false;
+            this.pairCode = '';
+            this.status = '已取消本次配对。';
+          },
+          onReset: () => {
+            this.resetPairing();
+          },
+          onToggleUsb: () => {
+            this.toggleUsb();
           }
-          Row({ space: 8 }) {
-            TextInput({ text: this.manualHost, placeholder: '手动输入电脑 IP' })
-              .onChange((value: string) => {
-                this.manualHost = value;
-              })
-              .layoutWeight(1)
-            Button('用 IP 配对')
-              .onClick(() => {
-                this.requestPairing(this.manualHost, PC_PORT);
-              })
-              .enabled(!this.pairBusy)
-          }
-          .width('100%')
-          if (this.pendingPair) {
-            Column({ space: 8 }) {
-              Text('电脑页面显示的 6 位配对码')
-                .fontSize(13)
-                .fontColor('#344054')
-              TextInput({ text: this.pairCode, placeholder: '6 位数字' })
-                .type(InputType.Number)
-                .maxLength(6)
-                .onChange((value: string) => {
-                  this.pairCode = value;
-                })
-                .width('100%')
-              Row({ space: 8 }) {
-                Button(this.pairBusy ? '确认中…' : '确认配对')
-                  .onClick(() => {
-                    this.confirmPairing();
-                  })
-                  .enabled(!this.pairBusy)
-                  .layoutWeight(1)
-                Button('取消')
-                  .onClick(() => {
-                    this.pendingPair = false;
-                    this.pairCode = '';
-                    this.status = '已取消本次配对。';
-                  })
-                  .enabled(!this.pairBusy)
-              }
-              .width('100%')
-            }
-            .width('100%')
-            .padding(12)
-            .backgroundColor('#F7F9FC')
-            .borderRadius(10)
-          }
-          }
-          .width('100%')
-          .padding(16)
-          .backgroundColor('#FFFFFF')
-          .borderRadius(14)
-          .alignItems(HorizontalAlign.Start)
-        } else {
-          Column({ space: 8 }) {
-            Row({ space: 8 }) {
-              Column({ space: 2 }) {
-                Text('已连接电脑')
-                  .fontSize(13)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor('#0F8A5F')
-                Text(`${this.pcHost}:${this.pcPort}`)
-                  .fontSize(11)
-                  .fontColor('#667085')
-              }
-              .layoutWeight(1)
-              .alignItems(HorizontalAlign.Start)
-              Text(this.isUsbHost() ? 'USB' : 'Wi-Fi')
-                .fontSize(10)
-                .fontColor(this.isUsbHost() ? '#0F8A5F' : '#2F6FED')
-                .backgroundColor(this.isUsbHost() ? '#D9F2E6' : '#EAF2FF')
-                .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                .borderRadius(10)
-            }
-            .width('100%')
-            Row({ space: 8 }) {
-              Button(this.isUsbHost() ? '切回 Wi-Fi' : 'USB 直连')
-                .fontSize(12)
-                .onClick(() => {
-                  this.toggleUsb();
-                })
-                .enabled(!this.isBusy())
-                .layoutWeight(1)
-              Button('重新配对')
-                .fontSize(12)
-                .onClick(() => {
-                  this.resetPairing();
-                })
-                .enabled(!this.isBusy())
-                .layoutWeight(1)
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .padding(12)
-          .backgroundColor('#E7F7F0')
-          .borderRadius(12)
+        })
 
+        if (this.paired) {
           UploadCard({
             uploading: this.uploading,
             uploadProgress: this.uploadProgress,
@@ -668,112 +542,25 @@ struct Index {
             }
           })
 
-          Column({ space: 10 }) {
-            Row({ space: 8 }) {
-              Text('2')
-                .width(24)
-                .height(24)
-                .textAlign(TextAlign.Center)
-                .fontSize(13)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#FFFFFF')
-                .backgroundColor('#0F8A5F')
-                .borderRadius(12)
-              Text('接收电脑结果')
-                .fontSize(17)
-                .fontWeight(FontWeight.Medium)
-                .fontColor('#162033')
-            }
-            .width('100%')
-            Text('电脑上处理完成后，先刷新，再下载改好日期的文件，最后用系统按钮保存到图库。')
-              .fontSize(12)
-              .fontColor('#667085')
-            Row({ space: 10 }) {
-              Button(this.refreshing ? '刷新中…' : '刷新结果')
-                .onClick(() => {
-                  this.refreshOutbox();
-                })
-                .enabled(!this.refreshing)
-                .layoutWeight(1)
-              Button(this.downloading ? `下载中 ${this.downloadProgress}%` : `下载全部结果 (${this.outboxFiles.length})`)
-                .onClick(() => {
-                  this.downloadOutbox();
-                })
-                .enabled(!this.downloading && this.outboxFiles.length > 0)
-                .layoutWeight(1)
-            }
-            .width('100%')
-            if (this.downloadedCount > 0) {
-              Column({ space: 8 }) {
-                Text(`已下载 ${this.downloadedCount} 个，等待保存到图库`)
-                  .fontSize(13)
-                  .fontColor('#0F8A5F')
-                SaveButton({
-                  icon: SaveIconStyle.FULL_FILLED,
-                  text: SaveDescription.SAVE,
-                  buttonType: ButtonType.Capsule
-                })
-                  .onClick(this.handleSave)
-                  .width('100%')
-              }
-              .width('100%')
-              .alignItems(HorizontalAlign.Start)
-            }
-            if (this.outboxRun) {
-              Text(`批次 ${this.outboxRun}`)
-                .fontSize(11)
-                .fontColor('#98A2B3')
-            }
-            if (this.outboxFiles.length > 0) {
-              Column({ space: 6 }) {
-                Text(`电脑上有 ${this.outboxFiles.length} 个结果`)
-                  .fontSize(13)
-                  .fontWeight(FontWeight.Medium)
-                  .fontColor('#344054')
-                ForEach(this.visibleOutboxFiles(), (item: OutboxFile) => {
-                  Row({ space: 8 }) {
-                    Text(item.kind === 'video' ? '视频' : '图片')
-                      .fontSize(10)
-                      .fontColor('#2F6FED')
-                      .backgroundColor('#EAF2FF')
-                      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                      .borderRadius(4)
-                    Column({ space: 2 }) {
-                      Text(item.name)
-                        .fontSize(12)
-                        .fontColor('#344054')
-                        .maxLines(1)
-                        .textOverflow({ overflow: TextOverflow.Ellipsis })
-                      Text(`${this.formatBytes(item.size)} · ${item.date}`)
-                        .fontSize(10)
-                        .fontColor('#98A2B3')
-                    }
-                    .layoutWeight(1)
-                    .alignItems(HorizontalAlign.Start)
-                  }
-                  .width('100%')
-                }, (item: OutboxFile) => item.relativePath)
-                if (this.outboxFiles.length > 5) {
-                  Button(this.outboxExpanded ? '收起列表' : `展开全部 ${this.outboxFiles.length} 个`)
-                    .fontSize(12)
-                    .width('100%')
-                    .onClick(() => {
-                      this.outboxExpanded = !this.outboxExpanded;
-                    })
-                }
-              }
-              .width('100%')
-              .padding(10)
-              .backgroundColor('#F7F9FC')
-              .borderRadius(10)
-              .alignItems(HorizontalAlign.Start)
-            }
-          }
-          .width('100%')
-          .padding(16)
-          .backgroundColor('#FFFFFF')
-          .borderRadius(14)
-          .alignItems(HorizontalAlign.Start)
+          ReceiveCard({
+            refreshing: this.refreshing,
+            downloading: this.downloading,
+            downloadProgress: this.downloadProgress,
+            outboxRun: this.outboxRun,
+            outboxFiles: this.outboxFiles,
+            outboxExpanded: this.outboxExpanded,
+            downloadedCount: this.downloadedCount,
+            onRefresh: () => {
+              this.refreshOutbox();
+            },
+            onDownload: () => {
+              this.downloadOutbox();
+            },
+            onToggleExpand: () => {
+              this.outboxExpanded = !this.outboxExpanded;
+            },
+            onSave: this.handleSave
+          })
         }
 
         Column({ space: 4 }) {
