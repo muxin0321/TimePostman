@@ -17,15 +17,13 @@
 
 - DevEco Studio 6.0
 - Mate 70 Pro+ / HarmonyOS NEXT，开启开发者模式和 USB 调试
-- 项目根目录开两个终端：
+- 在项目根目录直接双击 `start.bat`，或运行：
 
 ```bash
-# 终端 1：电脑端日期编辑器
-npm run app
-
-# 终端 2：手机互传服务（8787）
-npm run phone:transfer
+npm run start:all
 ```
+
+这会同时启动电脑端网页（4317）和手机互传服务（8787）。调试时可以分开运行 `npm run app` 和 `npm run phone:transfer`。
 
 ## 首次配对
 

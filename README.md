@@ -141,7 +141,7 @@ npm run start:all
 
 ## 验证脚本：快速开始
 
-环境要求：Node.js 20+。项目自带 ExifTool 和 FFmpeg 二进制，不需要单独安装。下面的命令用于可行性验证，不是日常使用入口；日常使用请运行 `npm run app`。
+环境要求：Node.js 20+。项目自带 ExifTool 和 FFmpeg 二进制，不需要单独安装。下面的命令用于可行性验证，不是日常使用入口；日常使用请运行 `start.bat` 或 `npm run start:all`。
 
 ```bash
 npm install
