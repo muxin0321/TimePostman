@@ -16,6 +16,7 @@ import { StatusCard } from '../components/StatusCard';
 import { UploadCard } from '../components/UploadCard';
 import { ConnectionCard } from '../components/ConnectionCard';
 import { ReceiveCard } from '../components/ReceiveCard';
+import { WorkflowSteps } from '../components/WorkflowSteps';
 
 @Entry
 @Component
@@ -31,6 +32,8 @@ struct Index {
   @State pendingPair: boolean = false;
   @State pairCode: string = '';
   @State pairBusy: boolean = false;
+  @State activeTab: number = 0;
+  @State connectionExpanded: boolean = false;
   @State uploading: boolean = false;
   @State refreshing: boolean = false;
   @State downloading: boolean = false;
@@ -105,6 +108,13 @@ struct Index {
 
   private isBusy(): boolean {
     return this.uploading || this.downloading || this.refreshing || this.saving || this.discovering || this.pairBusy;
+  }
+
+  private workflowStep(): number {
+    if (!this.paired) return 0;
+    if (this.downloadedCount > 0) return 3;
+    if (this.outboxFiles.length > 0) return 2;
+    return 1;
   }
 
   private isUsbHost(): boolean {
@@ -192,6 +202,8 @@ struct Index {
       this.paired = true;
       this.pendingPair = false;
       this.status = '配对成功，可以开始上传了。';
+      this.activeTab = 0;
+      this.connectionExpanded = false;
     } catch (error) {
       const e = error as BusinessError;
       this.status = `配对失败：${e.message || '未知错误'}`;
@@ -212,6 +224,8 @@ struct Index {
     this.downloaded = [];
     this.downloadedCount = 0;
     this.status = '已断开。重新发现电脑，或手动输入电脑 IP。';
+    this.activeTab = 0;
+    this.connectionExpanded = false;
     await this.link.reset();
   }
 
@@ -294,6 +308,7 @@ struct Index {
       const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
       this.uploadProgress = 100;
       this.uploadStage = '上传完成';
+      this.activeTab = 1;
       this.status = `已上传 ${data.count} 个文件${skippedNote}${unsupportedNote}。去电脑上点“手机传入”并改日期，然后回来刷新结果。`;
     } catch (error) {
       const e = error as BusinessError;
@@ -326,6 +341,9 @@ struct Index {
       this.status = this.outboxFiles.length === 0
         ? '电脑上还没有处理结果。先上传照片，在电脑上处理后再刷新。'
         : `找到 ${this.outboxFiles.length} 个结果，点“下载全部结果”。`;
+      if (this.outboxFiles.length > 0) {
+        this.activeTab = 1;
+      }
     } catch (error) {
       const e = error as BusinessError;
       const switched = await this.fallbackFromUsb();
@@ -483,10 +501,12 @@ struct Index {
         Text('TimePostman 双向互传')
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#162033')
+          .fontColor($r('app.color.text_primary'))
         Text('手机上传照片 → 电脑改日期 → 手机接收结果并保存到图库。')
           .fontSize(14)
-          .fontColor('#667085')
+          .fontColor($r('app.color.text_muted'))
+
+        WorkflowSteps({ active: this.workflowStep() })
 
         StatusCard({
           status: this.status,
@@ -508,6 +528,7 @@ struct Index {
           discovering: this.discovering,
           pairBusy: this.pairBusy,
           pendingPair: this.pendingPair,
+          expanded: this.connectionExpanded,
           discovered: this.discovered,
           manualHost: $manualHost,
           pairCode: $pairCode,
@@ -530,47 +551,78 @@ struct Index {
           },
           onToggleUsb: () => {
             this.toggleUsb();
+          },
+          onToggleExpanded: () => {
+            this.connectionExpanded = !this.connectionExpanded;
           }
         })
 
         if (this.paired) {
-          UploadCard({
-            uploading: this.uploading,
-            uploadProgress: this.uploadProgress,
-            onUpload: () => {
-              this.pickAndUpload();
-            }
-          })
+          Row({ space: 6 }) {
+            Button('上传')
+              .layoutWeight(1)
+              .height(38)
+              .fontSize(13)
+              .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+              .backgroundColor(this.activeTab === 0 ? $r('app.color.accent') : $r('app.color.surface_soft'))
+              .onClick(() => {
+                this.activeTab = 0;
+              })
+            Button('接收结果')
+              .layoutWeight(1)
+              .height(38)
+              .fontSize(13)
+              .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+              .backgroundColor(this.activeTab === 1 ? $r('app.color.accent') : $r('app.color.surface_soft'))
+              .onClick(() => {
+                this.activeTab = 1;
+              })
+          }
+          .width('100%')
+          .padding(4)
+          .backgroundColor($r('app.color.surface'))
+          .borderRadius(12)
+          .border({ width: 1, color: $r('app.color.border') })
 
-          ReceiveCard({
-            refreshing: this.refreshing,
-            downloading: this.downloading,
-            downloadProgress: this.downloadProgress,
-            outboxRun: this.outboxRun,
-            outboxFiles: this.outboxFiles,
-            outboxExpanded: this.outboxExpanded,
-            downloadedCount: this.downloadedCount,
-            onRefresh: () => {
-              this.refreshOutbox();
-            },
-            onDownload: () => {
-              this.downloadOutbox();
-            },
-            onToggleExpand: () => {
-              this.outboxExpanded = !this.outboxExpanded;
-            },
-            onSave: this.handleSave
-          })
+          if (this.activeTab === 0) {
+            UploadCard({
+              uploading: this.uploading,
+              uploadProgress: this.uploadProgress,
+              onUpload: () => {
+                this.pickAndUpload();
+              }
+            })
+          } else {
+            ReceiveCard({
+              refreshing: this.refreshing,
+              downloading: this.downloading,
+              downloadProgress: this.downloadProgress,
+              outboxRun: this.outboxRun,
+              outboxFiles: this.outboxFiles,
+              outboxExpanded: this.outboxExpanded,
+              downloadedCount: this.downloadedCount,
+              onRefresh: () => {
+                this.refreshOutbox();
+              },
+              onDownload: () => {
+                this.downloadOutbox();
+              },
+              onToggleExpand: () => {
+                this.outboxExpanded = !this.outboxExpanded;
+              },
+              onSave: this.handleSave
+            })
+          }
         }
 
         Column({ space: 4 }) {
           Text('提示')
             .fontSize(12)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#344054')
+            .fontColor($r('app.color.text_secondary'))
           Text('目标日期以电脑端设置为准；保存后到系统图库检查日期和时间线位置。')
             .fontSize(11)
-            .fontColor('#98A2B3')
+            .fontColor($r('app.color.text_faint'))
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
@@ -581,6 +633,6 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F3F5FB')
+    .backgroundColor($r('app.color.bg'))
   }
 }

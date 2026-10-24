@@ -9,6 +9,7 @@ const phoneInboxBtn = $("#phoneInboxBtn");
 const clearInboxBtn = $("#clearInboxBtn");
 const outputSummary = $("#outputSummary");
 const cleanupOutputsBtn = $("#cleanupOutputsBtn");
+const themeToggle = $("#themeToggle");
 const pairingBanner = $("#pairingBanner");
 const pairingDevice = $("#pairingDevice");
 const pairingCode = $("#pairingCode");
@@ -341,6 +342,7 @@ async function scan() {
       showToast(`扫描完成，共 ${data.count} 个文件。`, "success");
     }
     filesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveStep(1);
   } catch (error) {
     showScanError(error.message);
   } finally {
@@ -574,6 +576,7 @@ function finishJob(job) {
   outputDirLabel.textContent = job.outputDir;
   outputDirLabel.title = job.outputDir;
   refreshOutputSummary();
+  setActiveStep(2);
 
   resultDetails.innerHTML = job.results.map((result) => {
     if (result.status === "ok") {
@@ -686,6 +689,37 @@ function applyDatePreset(offsetDays) {
   showToast(`已填入 ${value.replace("T", " ")}，点“应用到已选”生效。`, "success");
 }
 
+function applyStoredTheme() {
+  const saved = localStorage.getItem("timepostman.theme");
+  if (saved === "light" || saved === "dark") {
+    document.documentElement.dataset.theme = saved;
+  }
+  updateThemeButton();
+}
+
+function effectiveTheme() {
+  const manual = document.documentElement.dataset.theme;
+  if (manual === "light" || manual === "dark") return manual;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function updateThemeButton() {
+  if (!themeToggle) return;
+  themeToggle.textContent = effectiveTheme() === "dark" ? "浅色模式" : "深色模式";
+}
+
+function toggleTheme() {
+  const next = effectiveTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem("timepostman.theme", next);
+  updateThemeButton();
+}
+
+function setActiveStep(index) {
+  const steps = document.querySelectorAll(".rail-step");
+  steps.forEach((step, i) => step.classList.toggle("active", i === index));
+}
+
 function bindEvents() {
   browseSourceBtn.addEventListener("click", () => browseFolder(sourceInput, browseSourceBtn));
   browseOutputBtn.addEventListener("click", () => browseFolder(outputInput, browseOutputBtn));
@@ -751,6 +785,9 @@ function bindEvents() {
   processBtn.addEventListener("click", startProcess);
   openFolderBtn.addEventListener("click", openOutputFolder);
   cleanupOutputsBtn.addEventListener("click", cleanupOutputs);
+  if (themeToggle) {
+    themeToggle.addEventListener("click", toggleTheme);
+  }
   outputInput.addEventListener("change", () => {
     refreshOutputSummary();
   });
@@ -798,6 +835,7 @@ async function init() {
       browseOutputBtn.title = "当前系统请手动输入路径";
     }
     bindEvents();
+    applyStoredTheme();
     refreshOutputSummary();
     updateProcessButton();
     pollPairing();

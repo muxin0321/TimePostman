@@ -8,9 +8,9 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="page">
-    <header class="topbar">
-      <div class="brand">
+  <div class="app-shell">
+    <aside class="rail">
+      <div class="rail-brand">
         <div class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none">
             <rect x="5" y="15" width="34" height="23" rx="6" stroke="currentColor" stroke-width="2.4"/>
@@ -20,17 +20,56 @@
           </svg>
         </div>
         <div>
-          <h1>TimePostman</h1>
-          <p>把照片和视频的时间，送回它该在的那一天。</p>
+          <strong>TimePostman</strong>
+          <span>日期整理工作流</span>
         </div>
       </div>
-      <div class="top-badge">
-        <span class="dot"></span>
-        本地运行 · 原文件不改动
-      </div>
-    </header>
 
-    <main>
+      <nav class="rail-nav" aria-label="处理步骤">
+        <a class="rail-step active" href="#stepSource">
+          <span class="rail-step-num">01</span>
+          <span><strong>选择文件夹</strong><small>源文件与输出位置</small></span>
+        </a>
+        <a class="rail-step" href="#filesSection">
+          <span class="rail-step-num">02</span>
+          <span><strong>设置目标日期</strong><small>批量或逐条修改</small></span>
+        </a>
+        <a class="rail-step" href="#resultSection">
+          <span class="rail-step-num">03</span>
+          <span><strong>处理与输出</strong><small>生成带日期副本</small></span>
+        </a>
+      </nav>
+
+      <section class="rail-panel">
+        <p class="rail-label">输出目录</p>
+        <p id="outputSummary" class="rail-muted">正在统计输出目录…</p>
+        <button id="cleanupOutputsBtn" class="btn ghost rail-button" type="button">清理旧输出</button>
+      </section>
+
+      <section class="rail-panel rail-panel-quiet">
+        <p class="rail-label">运行状态</p>
+        <p class="rail-status"><span class="dot"></span>本地运行 · 原文件不改动</p>
+        <p class="rail-muted">文件只在本机处理，不上传云端。</p>
+      </section>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">照片与视频日期修正</p>
+          <h1>把时间送回它该在的那一天</h1>
+          <p class="topbar-sub">读取内嵌拍摄时间，生成改好日期的副本。</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="top-badge">
+            <span class="dot"></span>
+            本地运行
+          </div>
+          <button id="themeToggle" class="btn ghost theme-toggle" type="button" aria-label="切换明暗主题">切换主题</button>
+        </div>
+      </header>
+
+      <main>
       <section id="pairingBanner" class="pairing-banner" hidden>
         <div class="pairing-copy">
           <p class="eyebrow">首次连接</p>
@@ -42,7 +81,7 @@
         <button id="denyPairingBtn" class="btn ghost" type="button">拒绝</button>
       </section>
 
-      <section class="card">
+      <section id="stepSource" class="card">
         <div class="card-head">
           <div>
             <p class="eyebrow">第一步</p>
@@ -84,11 +123,6 @@
             清空手机传入
           </button>
           <span class="hint">时间按 UTC+8 处理 · 手机上传需先运行 npm run phone:transfer</span>
-        </div>
-
-        <div class="output-tools">
-          <span id="outputSummary" class="hint">正在统计输出目录…</span>
-          <button id="cleanupOutputsBtn" class="btn ghost" type="button">清理旧输出</button>
         </div>
 
         <div id="scanMessage" class="message" role="status" hidden></div>
@@ -218,7 +252,8 @@
       </details>
     </main>
 
-    <footer>TimePostman · 本地处理，不上传任何文件 · <span id="appVersion"></span></footer>
+      <footer>TimePostman · 本地处理，不上传任何文件 · <span id="appVersion"></span></footer>
+    </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

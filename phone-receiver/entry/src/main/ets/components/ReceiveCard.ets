@@ -48,18 +48,18 @@ export struct ReceiveCard {
           .textAlign(TextAlign.Center)
           .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#0F8A5F')
+          .fontColor($r('app.color.on_accent'))
+          .backgroundColor($r('app.color.success'))
           .borderRadius(12)
         Text('接收电脑结果')
           .fontSize(17)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#162033')
+          .fontColor($r('app.color.text_primary'))
       }
       .width('100%')
       Text('电脑上处理完成后，先刷新，再下载改好日期的文件，最后用系统按钮保存到图库。')
         .fontSize(12)
-        .fontColor('#667085')
+        .fontColor($r('app.color.text_muted'))
       Row({ space: 10 }) {
         Button(this.refreshing ? '刷新中…' : '刷新结果')
           .onClick(() => {
@@ -79,7 +79,7 @@ export struct ReceiveCard {
         Column({ space: 8 }) {
           Text(`已下载 ${this.downloadedCount} 个，等待保存到图库`)
             .fontSize(13)
-            .fontColor('#0F8A5F')
+            .fontColor($r('app.color.success'))
           SaveButton({
             icon: SaveIconStyle.FULL_FILLED,
             text: SaveDescription.SAVE,
@@ -94,31 +94,31 @@ export struct ReceiveCard {
       if (this.outboxRun) {
         Text(`批次 ${this.outboxRun}`)
           .fontSize(11)
-          .fontColor('#98A2B3')
+          .fontColor($r('app.color.text_faint'))
       }
       if (this.outboxFiles.length > 0) {
         Column({ space: 6 }) {
           Text(`电脑上有 ${this.outboxFiles.length} 个结果`)
             .fontSize(13)
             .fontWeight(FontWeight.Medium)
-            .fontColor('#344054')
+            .fontColor($r('app.color.text_secondary'))
           ForEach(this.visibleFiles(), (item: OutboxFile) => {
             Row({ space: 8 }) {
               Text(item.kind === 'video' ? '视频' : '图片')
                 .fontSize(10)
-                .fontColor('#2F6FED')
-                .backgroundColor('#EAF2FF')
+                .fontColor($r('app.color.accent'))
+                .backgroundColor($r('app.color.accent_soft'))
                 .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                 .borderRadius(4)
               Column({ space: 2 }) {
                 Text(item.name)
                   .fontSize(12)
-                  .fontColor('#344054')
+                  .fontColor($r('app.color.text_secondary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                 Text(`${this.formatBytes(item.size)} · ${item.date}`)
                   .fontSize(10)
-                  .fontColor('#98A2B3')
+                  .fontColor($r('app.color.text_faint'))
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
@@ -136,14 +136,14 @@ export struct ReceiveCard {
         }
         .width('100%')
         .padding(10)
-        .backgroundColor('#F7F9FC')
+        .backgroundColor($r('app.color.surface_soft'))
         .borderRadius(10)
         .alignItems(HorizontalAlign.Start)
       }
     }
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
     .alignItems(HorizontalAlign.Start)
   }

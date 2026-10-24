@@ -9,6 +9,7 @@ export struct ConnectionCard {
   @Prop discovering: boolean = false;
   @Prop pairBusy: boolean = false;
   @Prop pendingPair: boolean = false;
+  @Prop expanded: boolean = false;
   @Prop discovered: PcDevice[] = [];
   @Link manualHost: string;
   @Link pairCode: string;
@@ -18,6 +19,7 @@ export struct ConnectionCard {
   onCancel: () => void = () => {};
   onReset: () => void = () => {};
   onToggleUsb: () => void = () => {};
+  onToggleExpanded: () => void = () => {};
 
   build() {
     if (!this.paired) {
@@ -25,10 +27,10 @@ export struct ConnectionCard {
         Text('连接电脑')
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#162033')
+          .fontColor($r('app.color.text_primary'))
         Text('电脑和手机在同一局域网，打开电脑端程序后点“发现电脑”。USB 连接可手动输入 127.0.0.1。')
           .fontSize(12)
-          .fontColor('#667085')
+          .fontColor($r('app.color.text_muted'))
         Button(this.discovering ? '搜索中…' : '发现电脑')
           .onClick(() => {
             this.onDiscover();
@@ -43,10 +45,10 @@ export struct ConnectionCard {
                   Text(device.name)
                     .fontSize(14)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor('#162033')
+                    .fontColor($r('app.color.text_primary'))
                   Text(`${device.host}:${device.port}`)
                     .fontSize(11)
-                    .fontColor('#98A2B3')
+                    .fontColor($r('app.color.text_faint'))
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
@@ -58,7 +60,7 @@ export struct ConnectionCard {
               }
               .width('100%')
               .padding(10)
-              .backgroundColor('#FFFFFF')
+              .backgroundColor($r('app.color.surface'))
               .borderRadius(10)
             }, (device: PcDevice) => `${device.host}:${device.port}`)
           }
@@ -81,7 +83,7 @@ export struct ConnectionCard {
           Column({ space: 8 }) {
             Text('电脑页面显示的 6 位配对码')
               .fontSize(13)
-              .fontColor('#344054')
+              .fontColor($r('app.color.text_secondary'))
             TextInput({ text: this.pairCode, placeholder: '6 位数字' })
               .type(InputType.Number)
               .maxLength(6)
@@ -106,13 +108,13 @@ export struct ConnectionCard {
           }
           .width('100%')
           .padding(12)
-          .backgroundColor('#F7F9FC')
+          .backgroundColor($r('app.color.surface_soft'))
           .borderRadius(10)
         }
       }
       .width('100%')
       .padding(16)
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r('app.color.surface'))
       .borderRadius(14)
       .alignItems(HorizontalAlign.Start)
     } else {
@@ -122,42 +124,50 @@ export struct ConnectionCard {
             Text('已连接电脑')
               .fontSize(13)
               .fontWeight(FontWeight.Medium)
-              .fontColor('#0F8A5F')
+              .fontColor($r('app.color.success'))
             Text(`${this.pcHost}:${this.pcPort}`)
               .fontSize(11)
-              .fontColor('#667085')
+              .fontColor($r('app.color.text_muted'))
           }
           .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
           Text(this.isUsb ? 'USB' : 'Wi-Fi')
             .fontSize(10)
-            .fontColor(this.isUsb ? '#0F8A5F' : '#2F6FED')
-            .backgroundColor(this.isUsb ? '#D9F2E6' : '#EAF2FF')
+            .fontColor(this.isUsb ? $r('app.color.success') : $r('app.color.accent'))
+            .backgroundColor(this.isUsb ? $r('app.color.success_soft') : $r('app.color.accent_soft'))
             .padding({ left: 8, right: 8, top: 3, bottom: 3 })
             .borderRadius(10)
+          Button(this.expanded ? '收起' : '设置')
+            .fontSize(11)
+            .height(28)
+            .onClick(() => {
+              this.onToggleExpanded();
+            })
         }
         .width('100%')
-        Row({ space: 8 }) {
-          Button(this.isUsb ? '切回 Wi-Fi' : 'USB 直连')
-            .fontSize(12)
-            .onClick(() => {
-              this.onToggleUsb();
-            })
-            .enabled(!this.discovering && !this.pairBusy)
-            .layoutWeight(1)
-          Button('重新配对')
-            .fontSize(12)
-            .onClick(() => {
-              this.onReset();
-            })
-            .enabled(!this.discovering && !this.pairBusy)
-            .layoutWeight(1)
+        if (this.expanded) {
+          Row({ space: 8 }) {
+            Button(this.isUsb ? '切回 Wi-Fi' : 'USB 直连')
+              .fontSize(12)
+              .onClick(() => {
+                this.onToggleUsb();
+              })
+              .enabled(!this.discovering && !this.pairBusy)
+              .layoutWeight(1)
+            Button('重新配对')
+              .fontSize(12)
+              .onClick(() => {
+                this.onReset();
+              })
+              .enabled(!this.discovering && !this.pairBusy)
+              .layoutWeight(1)
+          }
+          .width('100%')
         }
-        .width('100%')
       }
       .width('100%')
       .padding(12)
-      .backgroundColor('#E7F7F0')
+      .backgroundColor($r('app.color.success_soft'))
       .borderRadius(12)
     }
   }

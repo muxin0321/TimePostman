@@ -17,12 +17,12 @@ export struct StatusCard {
           LoadingProgress()
             .width(18)
             .height(18)
-            .color('#2F6FED')
+            .color($r('app.color.accent'))
         }
         Text(this.status)
           .fontSize(15)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#162033')
+          .fontColor($r('app.color.text_primary'))
           .layoutWeight(1)
       }
       .width('100%')
@@ -32,17 +32,17 @@ export struct StatusCard {
         Column({ space: 4 }) {
           Progress({ value: this.uploadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
-            .color('#2F6FED')
+            .color($r('app.color.accent'))
           Row() {
             Text(this.uploadStage)
               .fontSize(11)
-              .fontColor('#667085')
+              .fontColor($r('app.color.text_muted'))
               .layoutWeight(1)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
             Text(`${this.uploadProgress}%${this.speedText ? ' · ' + this.speedText : ''}`)
               .fontSize(11)
-              .fontColor('#667085')
+              .fontColor($r('app.color.text_muted'))
           }
           .width('100%')
         }
@@ -53,17 +53,17 @@ export struct StatusCard {
         Column({ space: 4 }) {
           Progress({ value: this.downloadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
-            .color('#0F8A5F')
+            .color($r('app.color.success'))
           Row() {
             Text(this.downloadStage)
               .fontSize(11)
-              .fontColor('#667085')
+              .fontColor($r('app.color.text_muted'))
               .layoutWeight(1)
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
             Text(`${this.downloadProgress}%${this.speedText ? ' · ' + this.speedText : ''}`)
               .fontSize(11)
-              .fontColor('#667085')
+              .fontColor($r('app.color.text_muted'))
           }
           .width('100%')
         }
@@ -72,9 +72,9 @@ export struct StatusCard {
     }
     .width('100%')
     .padding(14)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
-    .border({ width: 1, color: '#E4E9F2' })
+    .border({ width: 1, color: $r('app.color.border') })
     .alignItems(HorizontalAlign.Start)
   }
 }

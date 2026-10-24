@@ -13,18 +13,18 @@ export struct UploadCard {
           .textAlign(TextAlign.Center)
           .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .backgroundColor('#2F6FED')
+          .fontColor($r('app.color.on_accent'))
+          .backgroundColor($r('app.color.accent'))
           .borderRadius(12)
         Text('上传照片或视频')
           .fontSize(17)
           .fontWeight(FontWeight.Medium)
-          .fontColor('#162033')
+          .fontColor($r('app.color.text_primary'))
       }
       .width('100%')
       Text('选择 1-50 个文件上传到电脑，然后到电脑网页点“手机传入”并设置目标日期。单个文件上限 300MB。')
         .fontSize(12)
-        .fontColor('#667085')
+        .fontColor($r('app.color.text_muted'))
       Button(this.uploading ? `上传中 ${this.uploadProgress}%` : '选择照片/视频并上传')
         .onClick(() => {
           this.onUpload();
@@ -34,7 +34,7 @@ export struct UploadCard {
     }
     .width('100%')
     .padding(16)
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r('app.color.surface'))
     .borderRadius(14)
     .alignItems(HorizontalAlign.Start)
   }
