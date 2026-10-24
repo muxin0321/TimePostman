@@ -130,15 +130,15 @@ struct Index {
       this.selectedTab = tab;
     });
     animateTo({
-      duration: 150,
+      duration: 120,
       curve: Curve.EaseIn,
       onFinish: () => {
         this.activeTab = tab;
         this.contentOffset = direction * this.contentWidth;
         setTimeout(() => {
           animateTo({
-            duration: 260,
-            curve: curves.springMotion(0.3, 0.84),
+            duration: 220,
+            curve: curves.springMotion(0.28, 0.86),
             onFinish: () => {
               this.contentOffset = 0;
               this.switchingTab = false;
