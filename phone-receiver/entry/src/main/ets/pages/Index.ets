@@ -577,64 +577,91 @@ struct Index {
         })
 
         if (this.paired) {
-          Row({ space: 6 }) {
-            Button('上传')
-              .layoutWeight(1)
-              .height(44)
-              .fontSize(13)
-              .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
-              .backgroundColor(this.activeTab === 0 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
-              .onClick(() => {
-                this.setActiveTab(0);
-              })
-            Button('接收结果')
-              .layoutWeight(1)
-              .height(44)
-              .fontSize(13)
-              .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
-              .backgroundColor(this.activeTab === 1 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
-              .onClick(() => {
-                this.setActiveTab(1);
-              })
+          Stack({ alignContent: Alignment.Start }) {
+            Row()
+              .width('50%')
+              .height(40)
+              .backgroundColor($r('app.color.accent'))
+              .borderRadius(9)
+              .translate({ x: this.activeTab === 0 ? 0 : '100%' })
+              .animation({ duration: 280, curve: curves.springMotion(0.28, 0.78) })
+            Row() {
+              Button('上传')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .backgroundColor(Color.Transparent)
+                .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
+                .onClick(() => {
+                  this.setActiveTab(0);
+                })
+              Button('接收结果')
+                .layoutWeight(1)
+                .height(40)
+                .fontSize(13)
+                .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .backgroundColor(Color.Transparent)
+                .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
+                .onClick(() => {
+                  this.setActiveTab(1);
+                })
+            }
+            .width('100%')
           }
           .width('100%')
+          .height(48)
           .padding(4)
           .backgroundColor($r('app.color.surface'))
           .borderRadius(12)
           .border({ width: 1, color: $r('app.color.border') })
 
           if (this.activeTab === 0) {
-            UploadCard({
-              uploading: this.uploading,
-              uploadProgress: this.uploadProgress,
-              onUpload: () => {
-                this.pickAndUpload();
-              }
-            })
+            Column() {
+              UploadCard({
+                uploading: this.uploading,
+                uploadProgress: this.uploadProgress,
+                onUpload: () => {
+                  this.pickAndUpload();
+                }
+              })
+            }
+            .width('100%')
+            .transition(
+              TransitionEffect.OPACITY
+                .combine(TransitionEffect.translate({ y: 8 }))
+                .animation({ duration: 240, curve: curves.springMotion(0.32, 0.82) })
+            )
           } else {
-            ReceiveCard({
-              refreshing: this.refreshing,
-              downloading: this.downloading,
-              downloadProgress: this.downloadProgress,
-              outboxRun: this.outboxRun,
-              outboxFiles: this.outboxFiles,
-              outboxExpanded: this.outboxExpanded,
-              downloadedCount: this.downloadedCount,
-              baseUrl: this.link.baseUrl(),
-              token: this.link.token,
-              onRefresh: () => {
-                this.refreshOutbox();
-              },
-              onDownload: () => {
-                this.downloadOutbox();
-              },
-              onToggleExpand: () => {
-                this.toggleOutboxExpanded();
-              },
-              onSave: this.handleSave
-            })
+            Column() {
+              ReceiveCard({
+                refreshing: this.refreshing,
+                downloading: this.downloading,
+                downloadProgress: this.downloadProgress,
+                outboxRun: this.outboxRun,
+                outboxFiles: this.outboxFiles,
+                outboxExpanded: this.outboxExpanded,
+                downloadedCount: this.downloadedCount,
+                baseUrl: this.link.baseUrl(),
+                token: this.link.token,
+                onRefresh: () => {
+                  this.refreshOutbox();
+                },
+                onDownload: () => {
+                  this.downloadOutbox();
+                },
+                onToggleExpand: () => {
+                  this.toggleOutboxExpanded();
+                },
+                onSave: this.handleSave
+              })
+            }
+            .width('100%')
+            .transition(
+              TransitionEffect.OPACITY
+                .combine(TransitionEffect.translate({ y: 8 }))
+                .animation({ duration: 240, curve: curves.springMotion(0.32, 0.82) })
+            )
           }
         }
 
