@@ -119,19 +119,19 @@ struct Index {
   }
 
   private setActiveTab(tab: number): void {
-    animateTo({ duration: 320, curve: curves.springMotion(0.32, 0.72) }, () => {
+    animateTo({ duration: 280, curve: curves.springMotion(0.28, 0.78) }, () => {
       this.activeTab = tab;
     });
   }
 
   private toggleConnectionExpanded(): void {
-    animateTo({ duration: 340, curve: curves.springMotion(0.36, 0.7) }, () => {
+    animateTo({ duration: 300, curve: curves.springMotion(0.3, 0.76) }, () => {
       this.connectionExpanded = !this.connectionExpanded;
     });
   }
 
   private toggleOutboxExpanded(): void {
-    animateTo({ duration: 340, curve: curves.springMotion(0.36, 0.7) }, () => {
+    animateTo({ duration: 300, curve: curves.springMotion(0.3, 0.76) }, () => {
       this.outboxExpanded = !this.outboxExpanded;
     });
   }
@@ -580,21 +580,21 @@ struct Index {
           Row({ space: 6 }) {
             Button('上传')
               .layoutWeight(1)
-              .height(38)
+              .height(44)
               .fontSize(13)
               .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 0 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 280, curve: curves.springMotion(0.3, 0.7) })
+              .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
               .onClick(() => {
                 this.setActiveTab(0);
               })
             Button('接收结果')
               .layoutWeight(1)
-              .height(38)
+              .height(44)
               .fontSize(13)
               .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 1 ? $r('app.color.accent') : $r('app.color.surface_soft'))
-              .animation({ duration: 280, curve: curves.springMotion(0.3, 0.7) })
+              .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
               .onClick(() => {
                 this.setActiveTab(1);
               })

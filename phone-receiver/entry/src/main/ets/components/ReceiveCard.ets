@@ -73,12 +73,14 @@ export struct ReceiveCard {
             this.onRefresh();
           })
           .enabled(!this.refreshing)
+          .height(44)
           .layoutWeight(1)
         Button(this.downloading ? `下载中 ${this.downloadProgress}%` : `下载全部结果 (${this.outboxFiles.length})`)
           .onClick(() => {
             this.onDownload();
           })
           .enabled(!this.downloading && this.outboxFiles.length > 0)
+          .height(44)
           .layoutWeight(1)
       }
       .width('100%')
@@ -97,7 +99,7 @@ export struct ReceiveCard {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
-        .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.36, 0.7) }))
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.3, 0.76) }))
       }
       if (this.outboxRun) {
         Text(`批次 ${this.outboxRun}`)

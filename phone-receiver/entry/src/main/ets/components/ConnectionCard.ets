@@ -139,8 +139,8 @@ export struct ConnectionCard {
             .padding({ left: 8, right: 8, top: 3, bottom: 3 })
             .borderRadius(10)
           Button(this.expanded ? '收起' : '设置')
-            .fontSize(11)
-            .height(28)
+            .fontSize(12)
+            .height(36)
             .onClick(() => {
               this.onToggleExpanded();
             })
@@ -164,7 +164,7 @@ export struct ConnectionCard {
               .layoutWeight(1)
           }
           .width('100%')
-          .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.36, 0.7) }))
+          .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: curves.springMotion(0.3, 0.76) }))
         }
       }
       .width('100%')

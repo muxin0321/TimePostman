@@ -33,12 +33,12 @@ export struct WorkflowSteps {
         .backgroundColor(this.stepBackground(index))
         .borderRadius(12)
         .scale({ x: index === this.active ? 1.1 : 1, y: index === this.active ? 1.1 : 1 })
-        .animation({ duration: 300, curve: curves.springMotion(0.32, 0.68) })
+        .animation({ duration: 280, curve: curves.springMotion(0.28, 0.78) })
       Text(label)
         .fontSize(10)
         .fontColor(this.stepLabelColor(index))
         .fontWeight(index === this.active ? FontWeight.Medium : FontWeight.Normal)
-        .animation({ duration: 280, curve: curves.springMotion(0.3, 0.72) })
+        .animation({ duration: 260, curve: curves.springMotion(0.26, 0.8) })
     }
     .layoutWeight(1)
   }

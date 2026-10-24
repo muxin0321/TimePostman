@@ -30,6 +30,7 @@ export struct UploadCard {
           this.onUpload();
         })
         .enabled(!this.uploading)
+        .height(46)
         .width('100%')
     }
     .width('100%')
