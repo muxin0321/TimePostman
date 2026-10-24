@@ -117,6 +117,24 @@ struct Index {
     return 1;
   }
 
+  private setActiveTab(tab: number): void {
+    animateTo({ duration: 180, curve: Curve.EaseOut }, () => {
+      this.activeTab = tab;
+    });
+  }
+
+  private toggleConnectionExpanded(): void {
+    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      this.connectionExpanded = !this.connectionExpanded;
+    });
+  }
+
+  private toggleOutboxExpanded(): void {
+    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      this.outboxExpanded = !this.outboxExpanded;
+    });
+  }
+
   private isUsbHost(): boolean {
     return this.pcHost === '127.0.0.1';
   }
@@ -202,7 +220,7 @@ struct Index {
       this.paired = true;
       this.pendingPair = false;
       this.status = '配对成功，可以开始上传了。';
-      this.activeTab = 0;
+      this.setActiveTab(0);
       this.connectionExpanded = false;
     } catch (error) {
       const e = error as BusinessError;
@@ -308,7 +326,7 @@ struct Index {
       const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
       this.uploadProgress = 100;
       this.uploadStage = '上传完成';
-      this.activeTab = 1;
+      this.setActiveTab(1);
       this.status = `已上传 ${data.count} 个文件${skippedNote}${unsupportedNote}。去电脑上点“手机传入”并改日期，然后回来刷新结果。`;
     } catch (error) {
       const e = error as BusinessError;
@@ -342,7 +360,7 @@ struct Index {
         ? '电脑上还没有处理结果。先上传照片，在电脑上处理后再刷新。'
         : `找到 ${this.outboxFiles.length} 个结果，点“下载全部结果”。`;
       if (this.outboxFiles.length > 0) {
-        this.activeTab = 1;
+        this.setActiveTab(1);
       }
     } catch (error) {
       const e = error as BusinessError;
@@ -553,7 +571,7 @@ struct Index {
             this.toggleUsb();
           },
           onToggleExpanded: () => {
-            this.connectionExpanded = !this.connectionExpanded;
+            this.toggleConnectionExpanded();
           }
         })
 
@@ -565,8 +583,9 @@ struct Index {
               .fontSize(13)
               .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 0 ? $r('app.color.accent') : $r('app.color.surface_soft'))
+              .animation({ duration: 180, curve: Curve.EaseOut })
               .onClick(() => {
-                this.activeTab = 0;
+                this.setActiveTab(0);
               })
             Button('接收结果')
               .layoutWeight(1)
@@ -574,8 +593,9 @@ struct Index {
               .fontSize(13)
               .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
               .backgroundColor(this.activeTab === 1 ? $r('app.color.accent') : $r('app.color.surface_soft'))
+              .animation({ duration: 180, curve: Curve.EaseOut })
               .onClick(() => {
-                this.activeTab = 1;
+                this.setActiveTab(1);
               })
           }
           .width('100%')
@@ -608,7 +628,7 @@ struct Index {
                 this.downloadOutbox();
               },
               onToggleExpand: () => {
-                this.outboxExpanded = !this.outboxExpanded;
+                this.toggleOutboxExpanded();
               },
               onSave: this.handleSave
             })

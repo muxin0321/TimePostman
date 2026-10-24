@@ -30,10 +30,12 @@ export struct WorkflowSteps {
         .fontColor(this.stepNumberColor(index))
         .backgroundColor(this.stepBackground(index))
         .borderRadius(12)
+        .animation({ duration: 220, curve: Curve.EaseOut })
       Text(label)
         .fontSize(10)
         .fontColor(this.stepLabelColor(index))
         .fontWeight(index === this.active ? FontWeight.Medium : FontWeight.Normal)
+        .animation({ duration: 220, curve: Curve.EaseOut })
     }
     .layoutWeight(1)
   }

@@ -239,11 +239,13 @@ html[data-theme="dark"] {
   font-size: 10px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .rail-step.active .rail-step-num {
   background: var(--accent);
   color: #fff;
+  transform: translateY(-1px);
 }
 
 .rail-step strong {
@@ -433,6 +435,7 @@ main {
   box-shadow: var(--shadow);
   padding: 24px 26px;
   animation: rise-in 0.35s ease both;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .pairing-banner {
@@ -496,6 +499,11 @@ main {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .card-head {
@@ -711,6 +719,7 @@ input:disabled {
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   border-radius: 10px;
+  animation: fade-in 0.2s ease both;
 }
 
 .message.success {
@@ -826,6 +835,10 @@ tbody td {
 
 tbody tr:last-child td {
   border-bottom: none;
+}
+
+tbody tr {
+  transition: background 0.15s ease;
 }
 
 tbody tr:hover {
@@ -1067,7 +1080,13 @@ tbody tr.is-error {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 10px;
+  animation: rise-in 0.28s ease both;
 }
+
+.result-item:nth-child(2) { animation-delay: 0.03s; }
+.result-item:nth-child(3) { animation-delay: 0.06s; }
+.result-item:nth-child(4) { animation-delay: 0.09s; }
+.result-item:nth-child(5) { animation-delay: 0.12s; }
 
 .result-item .result-icon {
   flex: 0 0 auto;

@@ -163,6 +163,7 @@ export struct ConnectionCard {
               .layoutWeight(1)
           }
           .width('100%')
+          .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
         }
       }
       .width('100%')

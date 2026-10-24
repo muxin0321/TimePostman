@@ -18,6 +18,7 @@ export struct StatusCard {
             .width(18)
             .height(18)
             .color($r('app.color.accent'))
+            .animation({ duration: 220, curve: Curve.EaseOut })
         }
         Text(this.status)
           .fontSize(15)
@@ -33,6 +34,7 @@ export struct StatusCard {
           Progress({ value: this.uploadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
             .color($r('app.color.accent'))
+            .animation({ duration: 220, curve: Curve.EaseOut })
           Row() {
             Text(this.uploadStage)
               .fontSize(11)
@@ -54,6 +56,7 @@ export struct StatusCard {
           Progress({ value: this.downloadProgress, total: 100, type: ProgressType.Linear })
             .width('100%')
             .color($r('app.color.success'))
+            .animation({ duration: 220, curve: Curve.EaseOut })
           Row() {
             Text(this.downloadStage)
               .fontSize(11)

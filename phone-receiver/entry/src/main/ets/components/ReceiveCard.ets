@@ -90,6 +90,7 @@ export struct ReceiveCard {
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
+        .transition(TransitionEffect.OPACITY.animation({ duration: 180, curve: Curve.EaseOut }))
       }
       if (this.outboxRun) {
         Text(`批次 ${this.outboxRun}`)
