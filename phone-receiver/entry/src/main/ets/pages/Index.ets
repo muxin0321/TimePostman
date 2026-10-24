@@ -34,7 +34,10 @@ struct Index {
   @State pairCode: string = '';
   @State pairBusy: boolean = false;
   @State activeTab: number = 0;
-  @State slideDirection: number = 1;
+  @State selectedTab: number = 0;
+  @State contentOffset: number = 0;
+  @State contentWidth: number = 360;
+  @State switchingTab: boolean = false;
   @State connectionExpanded: boolean = false;
   @State uploading: boolean = false;
   @State refreshing: boolean = false;
@@ -119,12 +122,34 @@ struct Index {
     return 1;
   }
 
-  private setActiveTab(tab: number): void {
-    if (tab === this.activeTab) return;
-    const direction = tab > this.activeTab ? 1 : -1;
+  private switchTab(tab: number): void {
+    if (tab === this.selectedTab || this.switchingTab) return;
+    const direction = tab > this.selectedTab ? 1 : -1;
+    this.switchingTab = true;
     animateTo({ duration: 400, curve: curves.springMotion(0.4, 0.82) }, () => {
-      this.slideDirection = direction;
-      this.activeTab = tab;
+      this.selectedTab = tab;
+    });
+    animateTo({
+      duration: 150,
+      curve: Curve.EaseIn,
+      onFinish: () => {
+        this.activeTab = tab;
+        this.contentOffset = direction * this.contentWidth;
+        setTimeout(() => {
+          animateTo({
+            duration: 260,
+            curve: curves.springMotion(0.3, 0.84),
+            onFinish: () => {
+              this.contentOffset = 0;
+              this.switchingTab = false;
+            }
+          }, () => {
+            this.contentOffset = 0;
+          });
+        }, 16);
+      }
+    }, () => {
+      this.contentOffset = 0 - direction * this.contentWidth;
     });
   }
 
@@ -225,7 +250,7 @@ struct Index {
       this.paired = true;
       this.pendingPair = false;
       this.status = '配对成功，可以开始上传了。';
-      this.setActiveTab(0);
+      this.switchTab(0);
       this.connectionExpanded = false;
     } catch (error) {
       const e = error as BusinessError;
@@ -248,6 +273,9 @@ struct Index {
     this.downloadedCount = 0;
     this.status = '已断开。重新发现电脑，或手动输入电脑 IP。';
     this.activeTab = 0;
+    this.selectedTab = 0;
+    this.contentOffset = 0;
+    this.switchingTab = false;
     this.connectionExpanded = false;
     await this.link.reset();
   }
@@ -331,7 +359,7 @@ struct Index {
       const unsupportedNote = unsupported > 0 ? `，${unsupported} 个 GIF/WebP 无法修改图库日期已跳过` : '';
       this.uploadProgress = 100;
       this.uploadStage = '上传完成';
-      this.setActiveTab(1);
+      this.switchTab(1);
       this.status = `已上传 ${data.count} 个文件${skippedNote}${unsupportedNote}。去电脑上点“手机传入”并改日期，然后回来刷新结果。`;
     } catch (error) {
       const e = error as BusinessError;
@@ -365,7 +393,7 @@ struct Index {
         ? '电脑上还没有处理结果。先上传照片，在电脑上处理后再刷新。'
         : `找到 ${this.outboxFiles.length} 个结果，点“下载全部结果”。`;
       if (this.outboxFiles.length > 0) {
-        this.setActiveTab(1);
+        this.switchTab(1);
       }
     } catch (error) {
       const e = error as BusinessError;
@@ -587,28 +615,28 @@ struct Index {
               .height(40)
               .backgroundColor($r('app.color.accent'))
               .borderRadius(20)
-              .translate({ x: this.activeTab === 0 ? 0 : '100%' })
+              .translate({ x: this.selectedTab === 0 ? 0 : '100%' })
               .animation({ duration: 400, curve: curves.springMotion(0.4, 0.82) })
             Row() {
               Button('上传')
                 .layoutWeight(1)
                 .height(40)
                 .fontSize(13)
-                .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .fontColor(this.selectedTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
                 .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
-                  this.setActiveTab(0);
+                  this.switchTab(0);
                 })
               Button('接收结果')
                 .layoutWeight(1)
                 .height(40)
                 .fontSize(13)
-                .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                .fontColor(this.selectedTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
                 .backgroundColor(Color.Transparent)
                 .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
                 .onClick(() => {
-                  this.setActiveTab(1);
+                  this.switchTab(1);
                 })
             }
             .width('100%')
@@ -620,8 +648,8 @@ struct Index {
           .borderRadius(24)
           .border({ width: 1, color: $r('app.color.border') })
 
-          if (this.activeTab === 0) {
-            Column() {
+          Column() {
+            if (this.activeTab === 0) {
               UploadCard({
                 uploading: this.uploading,
                 uploadProgress: this.uploadProgress,
@@ -629,16 +657,7 @@ struct Index {
                   this.pickAndUpload();
                 }
               })
-            }
-            .width('100%')
-            .transition(
-              TransitionEffect.asymmetric(
-                TransitionEffect.translate({ x: this.slideDirection > 0 ? 64 : -64 }),
-                TransitionEffect.translate({ x: this.slideDirection > 0 ? -64 : 64 })
-              ).animation({ duration: 300, curve: curves.springMotion(0.3, 0.86) })
-            )
-          } else {
-            Column() {
+            } else {
               ReceiveCard({
                 refreshing: this.refreshing,
                 downloading: this.downloading,
@@ -661,14 +680,15 @@ struct Index {
                 onSave: this.handleSave
               })
             }
-            .width('100%')
-            .transition(
-              TransitionEffect.asymmetric(
-                TransitionEffect.translate({ x: this.slideDirection > 0 ? 64 : -64 }),
-                TransitionEffect.translate({ x: this.slideDirection > 0 ? -64 : 64 })
-              ).animation({ duration: 300, curve: curves.springMotion(0.3, 0.86) })
-            )
           }
+          .width('100%')
+          .translate({ x: this.contentOffset })
+          .onAreaChange((oldValue: Area, newValue: Area) => {
+            const width = Number(newValue.width);
+            if (width > 0) {
+              this.contentWidth = width;
+            }
+          })
         }
 
         Column({ space: 4 }) {
