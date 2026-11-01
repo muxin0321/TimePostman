@@ -164,6 +164,14 @@ npm run start:all
 
 环境要求：Node.js 20+。项目自带 ExifTool 和 FFmpeg 二进制，不需要单独安装。下面的命令用于可行性验证，不是日常使用入口；日常使用请运行 `start.bat` 或 `npm run start:all`。
 
+验证脚本按 **UTC+8** 写入并比对时间。如果你的机器不在东八区，先设置时区再运行，否则所有文件都会被判为“不符合预期”：
+
+```bash
+TZ=Asia/Shanghai npm run verify:all
+```
+
+验证不通过时脚本会返回非零退出码，CI 依赖这个退出码判断。
+
 ```bash
 npm install
 npm run verify:doctor

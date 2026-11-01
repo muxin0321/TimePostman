@@ -648,7 +648,8 @@ async function inspect(options = {}) {
   } else {
     log("所有文件的 PC 端元数据与文件时间都符合预期，可以开始真机测试。");
   }
-  return { runDir, table };
+  // 把失败数量带出去，让调用方决定退出码——CI 依赖它来判断，不能永远返回成功。
+  return { runDir, table, bad };
 }
 
 async function doctor() {
@@ -727,9 +728,11 @@ async function main() {
       log(`运行目录：${runDir}`);
       break;
     }
-    case "inspect":
-      await inspect(options);
+    case "inspect": {
+      const { bad } = await inspect(options);
+      if (bad > 0) process.exitCode = 1;
       break;
+    }
     case "all": {
       await doctor();
       if (listMedia(INPUT_DIR).length === 0) {
@@ -738,7 +741,13 @@ async function main() {
         generateSamples();
       }
       const { runDir } = await prepare(options);
-      await inspect({ run: runDir });
+      const { bad } = await inspect({ run: runDir });
+      if (bad > 0) {
+        console.error("");
+        console.error(`验证未通过：${bad} 个文件回读不符合预期。`);
+        process.exitCode = 1;
+        break;
+      }
       log("");
       log("接下来：把 media 里的文件传到鸿蒙 NEXT 手机，按 README.md 的步骤记录观察结果。");
       break;
