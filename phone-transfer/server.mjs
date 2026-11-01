@@ -20,6 +20,11 @@ const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 const EXPORTS_DIR = path.join(ROOT, "exports");
 const PAIRED_FILE = path.join(ROOT, "phone-transfer", "paired-devices.json");
 
+// 配对令牌在长时间不使用后自动失效，避免一个泄露的令牌永久有效。
+const PAIR_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// lastSeenAt 只用来判断是否过期，不必每次请求都写盘。
+const TOKEN_TOUCH_PERSIST_MS = 60 * 60 * 1000;
+
 function loadPairedDevices() {
   try {
     return JSON.parse(fs.readFileSync(PAIRED_FILE, "utf8"));
@@ -28,17 +33,75 @@ function loadPairedDevices() {
   }
 }
 
-const pairedDevices = loadPairedDevices();
-const pairedTokens = new Set(
-  Object.values(pairedDevices).map((device) => device?.token).filter(Boolean),
-);
+function isValidDeviceEntry(device) {
+  return Boolean(device && typeof device.token === "string" && device.token);
+}
+
+// 兼容旧版 paired-devices.json：早期条目没有 lastSeenAt，用配对时间兜底。
+function normalizePairedDevices(raw) {
+  const fallback = new Date().toISOString();
+  const result = {};
+  for (const [deviceId, device] of Object.entries(raw ?? {})) {
+    if (!isValidDeviceEntry(device)) continue;
+    result[deviceId] = {
+      ...device,
+      pairedAt: device.pairedAt || fallback,
+      lastSeenAt: device.lastSeenAt || device.pairedAt || fallback,
+    };
+  }
+  return result;
+}
+
+const pairedDevices = normalizePairedDevices(loadPairedDevices());
+const tokenIndex = new Map();
 const pairRequests = new Map();
 const pairRequestBuckets = new Map();
+
+function rebuildTokenIndex() {
+  tokenIndex.clear();
+  for (const [deviceId, device] of Object.entries(pairedDevices)) {
+    if (isValidDeviceEntry(device)) tokenIndex.set(device.token, deviceId);
+  }
+}
 
 function savePairedDevices() {
   fs.mkdirSync(path.dirname(PAIRED_FILE), { recursive: true });
   fs.writeFileSync(PAIRED_FILE, JSON.stringify(pairedDevices, null, 2), "utf8");
 }
+
+let lastTouchPersist = 0;
+
+function rememberSeen(deviceId) {
+  const device = pairedDevices[deviceId];
+  if (!device) return;
+  device.lastSeenAt = new Date().toISOString();
+  const now = Date.now();
+  if (now - lastTouchPersist < TOKEN_TOUCH_PERSIST_MS) return;
+  lastTouchPersist = now;
+  try {
+    savePairedDevices();
+  } catch (error) {
+    console.error("保存配对设备失败：", error);
+  }
+}
+
+function revokeDevice(deviceId) {
+  const device = pairedDevices[deviceId];
+  if (!device) return false;
+  if (device.token) tokenIndex.delete(device.token);
+  delete pairedDevices[deviceId];
+  savePairedDevices();
+  return true;
+}
+
+function isDeviceExpired(device, now = Date.now()) {
+  const seen = Date.parse(device?.lastSeenAt || device?.pairedAt || "");
+  // 时间戳缺失或解析不出来时不当成过期，避免误杀正常设备。
+  if (!Number.isFinite(seen)) return false;
+  return now - seen > PAIR_TOKEN_TTL_MS;
+}
+
+rebuildTokenIndex();
 
 function cleanPairRequests() {
   const now = Date.now();
@@ -50,6 +113,37 @@ function cleanPairRequests() {
 function isLocalRequest(req) {
   const address = req.socket.remoteAddress || "";
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+function hostWithoutPort(hostHeader) {
+  const raw = String(hostHeader || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    return end === -1 ? raw : raw.slice(1, end);
+  }
+  const firstColon = raw.indexOf(":");
+  const lastColon = raw.lastIndexOf(":");
+  if (firstColon > -1 && firstColon === lastColon) return raw.slice(0, lastColon);
+  return raw;
+}
+
+const PRIVATE_IPV4_PATTERNS = [
+  /^10\./,
+  /^192\.168\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^169\.254\./,
+];
+
+// 只接受 IP 字面量或本机名作为 Host。
+// 这样恶意域名解析到局域网地址（DNS rebinding）时，浏览器带来的 Host 仍是那个域名，会被直接拒掉。
+function isTrustedHost(hostHeader) {
+  const host = hostWithoutPort(hostHeader);
+  if (!host) return false;
+  if (host === "127.0.0.1" || host === "localhost" || host === "::1") return true;
+  const machine = os.hostname().toLowerCase();
+  if (host === machine || host === `${machine}.local`) return true;
+  return PRIVATE_IPV4_PATTERNS.some((pattern) => pattern.test(host));
 }
 
 function allowPairRequest(ip) {
@@ -65,6 +159,19 @@ function allowPairRequest(ip) {
 
 const app = express();
 app.use(express.json());
+
+// 在所有路由之前拦一道：Host 不可信就直接拒绝，避免恶意网页通过 DNS rebinding 读到令牌或触发操作。
+app.use((req, res, next) => {
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!isTrustedHost(req.get("host"))) {
+    res.status(403).json({
+      error: "Host 未被信任：这个服务只接受局域网 IP 或 localhost 访问，请用电脑的 IP 地址直接连接。",
+    });
+    return;
+  }
+  next();
+});
 
 function sanitizeBaseName(source) {
   const base = String(source || "photo")
@@ -210,25 +317,86 @@ app.post("/pair/confirm", (req, res) => {
     return;
   }
   const token = crypto.randomBytes(24).toString("hex");
+  const now = new Date().toISOString();
+  // 同一台设备重新配对时，旧令牌必须一起作废，否则旧手机仍然能继续上传。
+  const previous = pairedDevices[request.deviceId];
+  if (previous?.token) tokenIndex.delete(previous.token);
   pairedDevices[request.deviceId] = {
     name: request.deviceName,
     token,
-    pairedAt: new Date().toISOString(),
+    pairedAt: now,
+    lastSeenAt: now,
   };
-  pairedTokens.add(token);
+  tokenIndex.set(token, request.deviceId);
   savePairedDevices();
   pairRequests.delete(requestId);
   console.log(`配对成功：${request.deviceName}`);
   res.json({ token, port: PORT, name: os.hostname() });
 });
 
+// 已配对设备列表与撤销：只允许本机调用，能列出所有持有令牌的设备。
+app.get("/pair/devices", (req, res) => {
+  if (!isLocalRequest(req)) {
+    res.status(403).json({ error: "只允许本机访问" });
+    return;
+  }
+  res.json({
+    ttlDays: Math.round(PAIR_TOKEN_TTL_MS / 86_400_000),
+    devices: Object.entries(pairedDevices).map(([deviceId, device]) => ({
+      deviceId,
+      name: device.name || deviceId,
+      pairedAt: device.pairedAt || "",
+      lastSeenAt: device.lastSeenAt || "",
+      expired: isDeviceExpired(device),
+    })),
+  });
+});
+
+app.post("/pair/revoke", (req, res) => {
+  if (!isLocalRequest(req)) {
+    res.status(403).json({ error: "只允许本机访问" });
+    return;
+  }
+  const requestedId = String(req.body?.deviceId || "");
+  const requestedToken = String(req.body?.token || "");
+  const target = requestedId || (requestedToken ? tokenIndex.get(requestedToken) : "") || "";
+  if (!target || !pairedDevices[target]) {
+    res.status(404).json({ error: "设备不存在" });
+    return;
+  }
+  const name = pairedDevices[target].name || target;
+  revokeDevice(target);
+  console.log(`已解除配对：${name}`);
+  res.json({ ok: true });
+});
+
 app.use("/api", (req, res, next) => {
-  const token = req.query.token || req.get("x-timepostman-token");
-  if (!pairedTokens.has(token)) {
+  // 优先读请求头；查询参数保留兼容性，手机端暂时还在用。
+  const token = req.get("x-timepostman-token") || req.query.token;
+  const deviceId = token ? tokenIndex.get(String(token)) : undefined;
+  if (!deviceId) {
     res.status(403).json({ error: "令牌无效，请重新配对" });
     return;
   }
+  const device = pairedDevices[deviceId];
+  if (!device || isDeviceExpired(device)) {
+    revokeDevice(deviceId);
+    console.log(`配对已过期并移除：${deviceId}`);
+    res.status(403).json({ error: "配对已过期，请重新配对" });
+    return;
+  }
+  rememberSeen(deviceId);
+  req.pairedDeviceId = deviceId;
+  res.setHeader("Cache-Control", "no-store");
   next();
+});
+
+// 手机端可以在“重新配对”时主动通知电脑作废自己的令牌，不用等它过期。
+app.post("/api/unpair", (req, res) => {
+  const deviceId = req.pairedDeviceId;
+  revokeDevice(deviceId);
+  console.log(`手机已主动解除配对：${deviceId}`);
+  res.json({ ok: true });
 });
 
 app.get("/health", (req, res) => {

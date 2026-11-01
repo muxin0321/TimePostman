@@ -90,6 +90,14 @@ npm run start:all
 
 应用服务器每次启动都会生成新的页面会话令牌，刷新浏览器页面即可；手机端的配对令牌保存在 `paired-devices.json`，不受影响。
 
+**手机提示“配对已过期”？**
+
+配对令牌 30 天没使用会自动失效，重新配对一次即可。如果最近一直在用却出现这个提示，检查两台设备的时间是否准确——过期判断依赖系统时间。
+
+**用域名访问网页或互传服务被拒（Host 未被信任）？**
+
+这是有意的限制。两个服务只接受 IP 地址或 `localhost` 作为 Host，用来挡掉 DNS rebinding 攻击。网页端请用 `http://127.0.0.1:4317`，手机端请填电脑的局域网 IP，不要用域名。
+
 **关掉窗口后手机连不上？**
 
 日期编辑器和互传服务由 `start.bat` / `startup.bat` 一起启动；关闭启动窗口会同时停止两个服务。重新双击桌面 `TimePostman` 即可。
@@ -141,6 +149,7 @@ npm run start:all
 - 电脑页面顶部会出现配对横幅和 6 位配对码；在手机 App 输入配对码确认。
 - USB 测试：先运行 `hdc rport tcp:8787 tcp:8787`，手机 App 手动输入 `127.0.0.1`，点“用 IP 配对”，配对码同样在电脑页面看。
 - 配对成功后双方保存 token（电脑在 `phone-transfer/paired-devices.json`），之后自动连接，不用每次输入。
+- **令牌 30 天不用就会失效**，只要手机还在用会自动续期。想提前作废某台设备：`curl http://127.0.0.1:8787/pair/devices` 看设备 ID，再 `curl -X POST -H "Content-Type: application/json" -d '{"deviceId":"<ID>"}' http://127.0.0.1:8787/pair/revoke`。这两个接口只能在本机调用。
 - 自动发现使用 UDP `8786`；如果路由器 AP 隔离或防火墙导致发现不到，用手动 IP 兜底。Windows 防火墙请允许“专用网络”。
 
 手机工程 `phone-receiver/` 已改成“发现/配对 + 上传/回传”界面，signed HAP 已构建。具体步骤见 `phone-receiver/README.md`。互传服务只监听局域网，不要把端口暴露到公网。

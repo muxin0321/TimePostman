@@ -33,6 +33,31 @@ app.use((req, res, next) => {
   );
   next();
 });
+// 这个服务只监听 127.0.0.1，正常情况下页面都是从 127.0.0.1 或 localhost 打开的。
+// 校验 Host 是为了挡掉 DNS rebinding：恶意页面把域名解析到 127.0.0.1 时，浏览器带来的 Host 仍是那个域名。
+const ALLOWED_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
+
+function hostWithoutPort(hostHeader) {
+  const raw = String(hostHeader || "").trim().toLowerCase();
+  if (!raw) return "";
+  if (raw.startsWith("[")) {
+    const end = raw.indexOf("]");
+    return end === -1 ? raw : raw.slice(1, end);
+  }
+  const firstColon = raw.indexOf(":");
+  const lastColon = raw.lastIndexOf(":");
+  if (firstColon > -1 && firstColon === lastColon) return raw.slice(0, lastColon);
+  return raw;
+}
+
+app.use((req, res, next) => {
+  if (!ALLOWED_HOSTS.has(hostWithoutPort(req.get("host")))) {
+    res.status(403).type("text/plain").send("Host 未被信任：请用 http://127.0.0.1 或 http://localhost 打开这个页面。");
+    return;
+  }
+  next();
+});
+
 app.use(express.static(PUBLIC_DIR));
 
 app.use("/api", (req, res, next) => {
