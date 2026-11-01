@@ -1,8 +1,13 @@
 import { curves } from '@kit.ArkUI';
 
+interface StatusLine {
+  id: number;
+  text: string;
+}
+
 @Component
 export struct StatusCard {
-  @Prop status: string = '';
+  @Prop @Watch('onStatusChanged') status: string = '';
   @Prop busy: boolean = false;
   @Prop uploading: boolean = false;
   @Prop uploadProgress: number = 0;
@@ -11,6 +16,26 @@ export struct StatusCard {
   @Prop downloadProgress: number = 0;
   @Prop downloadStage: string = '';
   @Prop speedText: string = '';
+  @State lines: StatusLine[] = [];
+  private lineSeq: number = 0;
+  private lastStatus: string = '';
+
+  aboutToAppear(): void {
+    this.lastStatus = this.status;
+    this.lines = [{ id: this.lineSeq++, text: this.status }];
+  }
+
+  private onStatusChanged(): void {
+    if (this.status === this.lastStatus) return;
+    this.lastStatus = this.status;
+    const next: StatusLine = { id: this.lineSeq++, text: this.status };
+    animateTo({
+      duration: 340,
+      curve: curves.springMotion(0.34, 0.86)
+    }, () => {
+      this.lines = [next];
+    });
+  }
 
   build() {
     Column({ space: 8 }) {
@@ -22,11 +47,25 @@ export struct StatusCard {
             .color($r('app.color.accent'))
             .animation({ duration: 280, curve: curves.springMotion(0.28, 0.78) })
         }
-        Text(this.status)
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('app.color.text_primary'))
-          .layoutWeight(1)
+        Stack({ alignContent: Alignment.TopStart }) {
+          ForEach(this.lines, (line: StatusLine) => {
+            Text(line.text)
+              .width('100%')
+              .fontSize(15)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('app.color.text_primary'))
+              .transition(TransitionEffect.asymmetric(
+                TransitionEffect.OPACITY
+                  .combine(TransitionEffect.translate({ y: 16 }))
+                  .animation({ duration: 340, curve: curves.springMotion(0.34, 0.86) }),
+                TransitionEffect.OPACITY
+                  .combine(TransitionEffect.translate({ y: -16 }))
+                  .animation({ duration: 240, curve: curves.springMotion(0.4, 0.9) })
+              ))
+          }, (line: StatusLine) => line.id.toString())
+        }
+        .layoutWeight(1)
+        .clip(true)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

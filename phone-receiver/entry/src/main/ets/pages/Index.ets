@@ -18,6 +18,7 @@ import { UploadCard } from '../components/UploadCard';
 import { ConnectionCard } from '../components/ConnectionCard';
 import { ReceiveCard } from '../components/ReceiveCard';
 import { WorkflowSteps } from '../components/WorkflowSteps';
+import { HiddenMeasure } from '../components/HiddenMeasure';
 
 @Entry
 @Component
@@ -36,8 +37,10 @@ struct Index {
   @State activeTab: number = 0;
   @State trackOffset: number = 0;
   @State contentWidth: number = 360;
-  @State uploadHeight: number = 360;
-  @State receiveHeight: number = 360;
+  @State uploadHeight: number = 0;
+  @State receiveHeight: number = 0;
+  @State carouselHeight: number = 320;
+  @State dragging: boolean = false;
   @State connectionExpanded: boolean = false;
   @State uploading: boolean = false;
   @State refreshing: boolean = false;
@@ -183,8 +186,29 @@ struct Index {
     return 1;
   }
 
+  private heightForTab(tab: number): number {
+    return tab === 0 ? this.uploadHeight : this.receiveHeight;
+  }
+
+  private onCardMeasured(tab: number, height: number): void {
+    if (!(height > 0)) return;
+    if (tab === 0) {
+      if (Math.abs(height - this.uploadHeight) <= 0.5) return;
+      this.uploadHeight = height;
+    } else {
+      if (Math.abs(height - this.receiveHeight) <= 0.5) return;
+      this.receiveHeight = height;
+    }
+    if (tab !== this.activeTab) return;
+    this.carouselHeight = height;
+  }
+
   private switchTab(tab: number): void {
     if (tab === this.activeTab) return;
+    const targetHeight = this.heightForTab(tab);
+    if (targetHeight > 0) {
+      this.carouselHeight = targetHeight;
+    }
     animateTo({ duration: 380, curve: curves.springMotion(0.38, 0.82) }, () => {
       this.activeTab = tab;
       this.trackOffset = tab * this.contentWidth;
@@ -192,12 +216,17 @@ struct Index {
   }
 
   private startTabDrag(): void {
+    this.dragging = true;
     this.dragStartOffset = this.trackOffset;
   }
 
   private updateTabDrag(offsetX: number): void {
     const next = this.dragStartOffset - offsetX;
     this.trackOffset = Math.max(0, Math.min(this.contentWidth, next));
+    if (this.uploadHeight > 0 && this.receiveHeight > 0 && this.contentWidth > 0) {
+      const progress = this.trackOffset / this.contentWidth;
+      this.carouselHeight = this.uploadHeight + (this.receiveHeight - this.uploadHeight) * progress;
+    }
   }
 
   private endTabDrag(velocityX: number): void {
@@ -206,6 +235,11 @@ struct Index {
       target = 1;
     } else if (velocityX > 500) {
       target = 0;
+    }
+    const targetHeight = this.heightForTab(target);
+    this.dragging = false;
+    if (targetHeight > 0) {
+      this.carouselHeight = targetHeight;
     }
     animateTo({ duration: 320, curve: curves.springMotion(0.32, 0.84) }, () => {
       this.activeTab = target;
@@ -336,6 +370,9 @@ struct Index {
     this.status = '已断开。重新发现电脑，或手动输入电脑 IP。';
     this.activeTab = 0;
     this.trackOffset = 0;
+    if (this.uploadHeight > 0) {
+      this.carouselHeight = this.uploadHeight;
+    }
     this.connectionExpanded = false;
     await this.link.reset();
   }
@@ -616,208 +653,229 @@ struct Index {
       : `已保存 ${resultData.ok} 个，失败 ${resultData.failed.length} 个；请再点一次系统保存重试。`;
   };
 
+  @Builder
+  receiveCardContent(measureOnly: boolean) {
+    ReceiveCard({
+      refreshing: this.refreshing,
+      downloading: this.downloading,
+      downloadProgress: this.downloadProgress,
+      outboxRun: this.outboxRun,
+      outboxFiles: this.outboxFiles,
+      outboxExpanded: this.outboxExpanded,
+      downloadedCount: this.downloadedCount,
+      baseUrl: this.link.baseUrl(),
+      token: this.link.token,
+      measureOnly: measureOnly,
+      onRefresh: () => {
+        this.refreshOutbox();
+      },
+      onDownload: () => {
+        this.downloadOutbox();
+      },
+      onToggleExpand: () => {
+        this.toggleOutboxExpanded();
+      },
+      onSave: this.handleSave
+    })
+  }
+
   build() {
     Stack() {
-      Scroll() {
-      Column({ space: 14 }) {
-        Text('TimePostman 时光邮差')
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('app.color.text_primary'))
-        Text('手机上传照片 → 电脑改日期 → 手机接收结果并保存到图库。')
-          .fontSize(14)
-          .fontColor($r('app.color.text_muted'))
-
-        WorkflowSteps({ active: this.workflowStep() })
-
-        StatusCard({
-          status: this.status,
-          busy: this.isBusy(),
-          uploading: this.uploading,
-          uploadProgress: this.uploadProgress,
-          uploadStage: this.uploadStage,
-          downloading: this.downloading,
-          downloadProgress: this.downloadProgress,
-          downloadStage: this.downloadStage,
-          speedText: this.speedText
-        })
-
-        ConnectionCard({
-          paired: this.paired,
-          pcHost: this.pcHost,
-          pcPort: this.pcPort,
-          isUsb: this.isUsbHost(),
-          discovering: this.discovering,
-          pairBusy: this.pairBusy,
-          pendingPair: this.pendingPair,
-          expanded: this.connectionExpanded,
-          discovered: this.discovered,
-          manualHost: $manualHost,
-          pairCode: $pairCode,
-          onDiscover: () => {
-            this.discover();
-          },
-          onPair: (host: string, port: number) => {
-            this.requestPairing(host, port);
-          },
-          onConfirm: () => {
-            this.confirmPairing();
-          },
-          onCancel: () => {
-            this.pendingPair = false;
-            this.pairCode = '';
-            this.status = '已取消本次配对。';
-          },
-          onReset: () => {
-            this.resetPairing();
-          },
-          onToggleUsb: () => {
-            this.toggleUsb();
-          },
-          onToggleExpanded: () => {
-            this.toggleConnectionExpanded();
-          }
-        })
-
-        if (this.paired) {
-          Stack({ alignContent: Alignment.Start }) {
-            Row()
-              .width('50%')
-              .height(40)
-              .backgroundColor($r('app.color.accent'))
-              .borderRadius(20)
-              .translate({ x: this.activeTab === 0 ? 0 : '100%' })
-              .animation({ duration: 400, curve: curves.springMotion(0.4, 0.82) })
-            Row() {
-              Button('上传')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
-                .backgroundColor(Color.Transparent)
-                .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
-                .onClick(() => {
-                  this.switchTab(0);
-                })
-              Button(this.outboxFiles.length > 0 ? `接收结果 (${this.outboxFiles.length})` : '接收结果')
-                .layoutWeight(1)
-                .height(40)
-                .fontSize(13)
-                .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
-                .backgroundColor(Color.Transparent)
-                .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
-                .onClick(() => {
-                  this.switchTab(1);
-                })
-            }
-            .width('100%')
-          }
-          .width('100%')
-          .height(48)
-          .padding(4)
-          .backgroundColor($r('app.color.surface'))
-          .borderRadius(24)
-          .border({ width: 1, color: $r('app.color.border') })
-
-          Stack({ alignContent: Alignment.TopStart }) {
-            Column() {
-              UploadCard({
-                uploading: this.uploading,
-                uploadProgress: this.uploadProgress,
-                onUpload: () => {
-                  this.pickAndUpload();
-                }
-              })
-            }
-            .width('100%')
-            .translate({ x: 0 - this.trackOffset })
-            .onAreaChange((oldValue: Area, newValue: Area) => {
-              const height = Number(newValue.height);
-              if (height > 0 && Math.abs(height - this.uploadHeight) > 1) {
-                this.uploadHeight = height;
-              }
-            })
-
-            Column() {
-              ReceiveCard({
-                refreshing: this.refreshing,
-                downloading: this.downloading,
-                downloadProgress: this.downloadProgress,
-                outboxRun: this.outboxRun,
-                outboxFiles: this.outboxFiles,
-                outboxExpanded: this.outboxExpanded,
-                downloadedCount: this.downloadedCount,
-                baseUrl: this.link.baseUrl(),
-                token: this.link.token,
-                onRefresh: () => {
-                  this.refreshOutbox();
-                },
-                onDownload: () => {
-                  this.downloadOutbox();
-                },
-                onToggleExpand: () => {
-                  this.toggleOutboxExpanded();
-                },
-                onSave: this.handleSave
-              })
-            }
-            .width('100%')
-            .translate({ x: this.contentWidth - this.trackOffset })
-            .onAreaChange((oldValue: Area, newValue: Area) => {
-              const height = Number(newValue.height);
-              if (height > 0 && Math.abs(height - this.receiveHeight) > 1) {
-                this.receiveHeight = height;
-              }
-            })
-          }
-          .width('100%')
-          .height(this.activeTab === 0 ? this.uploadHeight : this.receiveHeight)
-          .borderRadius(24)
-          .clip(true)
-          .onAreaChange((oldValue: Area, newValue: Area) => {
-            const width = Number(newValue.width);
-            if (width > 0) {
-              this.contentWidth = width;
-            }
-          })
-          .parallelGesture(
-            PanGesture({ direction: PanDirection.Horizontal, distance: 8 })
-              .onActionStart(() => {
-                this.startTabDrag();
-              })
-              .onActionUpdate((event: GestureEvent) => {
-                this.updateTabDrag(event.offsetX);
-              })
-              .onActionEnd((event: GestureEvent) => {
-                this.endTabDrag(event.velocityX);
-              })
-          )
-        }
-
-        Column({ space: 4 }) {
-          Text('提示')
-            .fontSize(12)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('app.color.text_secondary'))
-          Text('目标日期以电脑端设置为准；保存后到系统图库检查日期和时间线位置。')
-            .fontSize(11)
-            .fontColor($r('app.color.text_faint'))
+      Column() {
+        Column({ space: 14 }) {
+          Text('TimePostman 时光邮差')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.text_primary'))
+          Text('手机上传照片 → 电脑改日期 → 手机接收结果并保存到图库。')
+            .fontSize(14)
+            .fontColor($r('app.color.text_muted'))
         }
         .width('100%')
-        .padding({ left: 16, right: 16, top: 12, bottom: 12 })
-        .backgroundColor($r('app.color.surface'))
-        .borderRadius(24)
-        .border({ width: 1, color: $r('app.color.border') })
+        .padding({ left: 24, right: 24, top: this.topInset + 16 })
         .alignItems(HorizontalAlign.Start)
+
+        Scroll() {
+          Column({ space: 14 }) {
+            WorkflowSteps({ active: this.workflowStep() })
+
+            StatusCard({
+              status: this.status,
+              busy: this.isBusy(),
+              uploading: this.uploading,
+              uploadProgress: this.uploadProgress,
+              uploadStage: this.uploadStage,
+              downloading: this.downloading,
+              downloadProgress: this.downloadProgress,
+              downloadStage: this.downloadStage,
+              speedText: this.speedText
+            })
+
+            ConnectionCard({
+              paired: this.paired,
+              pcHost: this.pcHost,
+              pcPort: this.pcPort,
+              isUsb: this.isUsbHost(),
+              discovering: this.discovering,
+              pairBusy: this.pairBusy,
+              pendingPair: this.pendingPair,
+              expanded: this.connectionExpanded,
+              discovered: this.discovered,
+              manualHost: $manualHost,
+              pairCode: $pairCode,
+              onDiscover: () => {
+                this.discover();
+              },
+              onPair: (host: string, port: number) => {
+                this.requestPairing(host, port);
+              },
+              onConfirm: () => {
+                this.confirmPairing();
+              },
+              onCancel: () => {
+                this.pendingPair = false;
+                this.pairCode = '';
+                this.status = '已取消本次配对。';
+              },
+              onReset: () => {
+                this.resetPairing();
+              },
+              onToggleUsb: () => {
+                this.toggleUsb();
+              },
+              onToggleExpanded: () => {
+                this.toggleConnectionExpanded();
+              }
+            })
+
+            if (this.paired) {
+              Stack({ alignContent: Alignment.Start }) {
+                Row()
+                  .width('50%')
+                  .height(40)
+                  .backgroundColor($r('app.color.accent'))
+                  .borderRadius(20)
+                  .translate({ x: this.activeTab === 0 ? 0 : '100%' })
+                  .animation({ duration: 400, curve: curves.springMotion(0.4, 0.82) })
+                Row() {
+                  Button('上传')
+                    .layoutWeight(1)
+                    .height(40)
+                    .fontSize(13)
+                    .fontColor(this.activeTab === 0 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                    .backgroundColor(Color.Transparent)
+                    .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
+                    .onClick(() => {
+                      this.switchTab(0);
+                    })
+                  Button(this.outboxFiles.length > 0 ? `接收结果 (${this.outboxFiles.length})` : '接收结果')
+                    .layoutWeight(1)
+                    .height(40)
+                    .fontSize(13)
+                    .fontColor(this.activeTab === 1 ? $r('app.color.on_accent') : $r('app.color.text_muted'))
+                    .backgroundColor(Color.Transparent)
+                    .animation({ duration: 340, curve: curves.springMotion(0.34, 0.84) })
+                    .onClick(() => {
+                      this.switchTab(1);
+                    })
+                }
+                .width('100%')
+              }
+              .width('100%')
+              .height(48)
+              .padding(4)
+              .backgroundColor($r('app.color.surface'))
+              .borderRadius(24)
+              .border({ width: 1, color: $r('app.color.border') })
+
+              Stack({ alignContent: Alignment.TopStart }) {
+                Column() {
+                  UploadCard({
+                    uploading: this.uploading,
+                    uploadProgress: this.uploadProgress,
+                    onUpload: () => {
+                      this.pickAndUpload();
+                    }
+                  })
+                }
+                .width('100%')
+                .translate({ x: 0 - this.trackOffset })
+                .onAreaChange((oldValue: Area, newValue: Area) => {
+                  this.onCardMeasured(0, Number(newValue.height));
+                })
+
+                Column() {
+                  this.receiveCardContent(false)
+                }
+                .width('100%')
+                .translate({ x: this.contentWidth - this.trackOffset })
+              }
+              .width('100%')
+              .height(this.carouselHeight)
+              .animation({ duration: this.dragging ? 0 : 380, curve: Curve.EaseOut })
+              .borderRadius(24)
+              .clip(true)
+              .onAreaChange((oldValue: Area, newValue: Area) => {
+                const width = Number(newValue.width);
+                if (width > 0 && Math.abs(width - this.contentWidth) > 0.5) {
+                  this.contentWidth = width;
+                }
+              })
+              .parallelGesture(
+                PanGesture({ direction: PanDirection.Horizontal, distance: 8 })
+                  .onActionStart(() => {
+                    this.startTabDrag();
+                  })
+                  .onActionUpdate((event: GestureEvent) => {
+                    this.updateTabDrag(event.offsetX);
+                  })
+                  .onActionEnd((event: GestureEvent) => {
+                    this.endTabDrag(event.velocityX);
+                  })
+                  .onActionCancel(() => {
+                    this.endTabDrag(0);
+                  })
+              )
+            }
+
+            Column({ space: 4 }) {
+              Text('提示')
+                .fontSize(12)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.text_secondary'))
+              Text('目标日期以电脑端设置为准；保存后到系统图库检查日期和时间线位置。')
+                .fontSize(11)
+                .fontColor($r('app.color.text_faint'))
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+            .backgroundColor($r('app.color.surface'))
+            .borderRadius(24)
+            .border({ width: 1, color: $r('app.color.border') })
+            .alignItems(HorizontalAlign.Start)
+
+            if (this.paired) {
+              HiddenMeasure({
+                onHeight: (height: number) => {
+                  this.onCardMeasured(1, height);
+                }
+              }) {
+                this.receiveCardContent(true)
+              }
+            }
+          }
+          .width('100%')
+          .padding({ left: 24, right: 24, top: 14, bottom: this.bottomInset + 20 })
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .align(Alignment.TopStart)
       }
       .width('100%')
-      .padding({ left: 24, right: 24, top: this.topInset + 16, bottom: this.bottomInset + 20 })
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%')
-    .height('100%')
-    .backgroundColor($r('app.color.bg'))
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .height('100%')
+      .backgroundColor($r('app.color.bg'))
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
       if (this.showSplash) {
         Stack() {

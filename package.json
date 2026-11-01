@@ -17,7 +17,8 @@
     "verify:prepare": "node scripts/verify.mjs prepare",
     "verify:inspect": "node scripts/verify.mjs inspect",
     "verify:real": "node scripts/verify.mjs prepare --input samples/real && node scripts/verify.mjs inspect",
-    "verify:all": "node scripts/verify.mjs all"
+    "verify:all": "node scripts/verify.mjs all",
+    "release": "node scripts/build-release.mjs"
   },
   "dependencies": {
     "exiftool-vendored": "^39.0.1",

@@ -13,6 +13,7 @@ export struct ReceiveCard {
   @Prop downloadedCount: number = 0;
   @Prop baseUrl: string = '';
   @Prop token: string = '';
+  @Prop measureOnly: boolean = false;
   onRefresh: () => void = () => {};
   onDownload: () => void = () => {};
   onToggleExpand: () => void = () => {};
@@ -89,13 +90,20 @@ export struct ReceiveCard {
           Text(`已下载 ${this.downloadedCount} 个，等待保存到图库`)
             .fontSize(13)
             .fontColor($r('app.color.success'))
-          SaveButton({
-            icon: SaveIconStyle.FULL_FILLED,
-            text: SaveDescription.SAVE,
-            buttonType: ButtonType.Capsule
-          })
-            .onClick(this.onSave)
-            .width('100%')
+          if (this.measureOnly) {
+            Button('保存')
+              .width('100%')
+              .height(40)
+          } else {
+            SaveButton({
+              icon: SaveIconStyle.FULL_FILLED,
+              text: SaveDescription.SAVE,
+              buttonType: ButtonType.Capsule
+            })
+              .onClick(this.onSave)
+              .width('100%')
+              .height(40)
+          }
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
@@ -114,12 +122,18 @@ export struct ReceiveCard {
             .fontColor($r('app.color.text_secondary'))
           ForEach(this.visibleFiles(), (item: OutboxFile) => {
             Row({ space: 10 }) {
-              if (item.kind === 'image') {
+              if (item.kind === 'image' && !this.measureOnly) {
                 Image(this.previewUrl(item))
                   .width(44)
                   .height(44)
                   .borderRadius(9)
                   .objectFit(ImageFit.Cover)
+                  .backgroundColor($r('app.color.surface_soft'))
+              } else if (item.kind === 'image') {
+                Row()
+                  .width(44)
+                  .height(44)
+                  .borderRadius(9)
                   .backgroundColor($r('app.color.surface_soft'))
               } else {
                 Column() {
