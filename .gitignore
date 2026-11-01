@@ -9,6 +9,7 @@ exports/
 phone-transfer/test-image.jpg
 phone-transfer/paired-devices.json
 phone-inbox/
+dist/
 phone-receiver/.hvigor/
 phone-receiver/.idea/
 phone-receiver/oh_modules/
@@ -20,3 +21,11 @@ phone-receiver/entry/build/
 phone-receiver/build-profile.json5
 
 vibe_images/
+
+# WorkBuddy 工作区（体检报告、记忆等本地文件）
+.workbuddy/
+
+# 仅本地保存，不随仓库公开
+简历项目素材.md
+TimePostman-项目报告.txt
+TimePostman-体检报告.md

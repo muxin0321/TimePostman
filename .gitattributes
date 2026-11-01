@@ -1,0 +1,16 @@
+# 统一换行符，避免跨平台 clone 后脚本损坏。
+# 仓库内一律存 LF；Windows 批处理和 PowerShell 检出时转 CRLF。
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制资源，不做任何换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mov binary
+*.mp4 binary
+*.m4v binary
+*.heic binary
+*.hap binary
