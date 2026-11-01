@@ -1,6 +1,11 @@
 # TimePostman
 
+[![CI](https://github.com/muxin0321/TimePostman/actions/workflows/ci.yml/badge.svg)](https://github.com/muxin0321/TimePostman/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 在鸿蒙 NEXT 系统图库里修正照片/视频日期的本地工具。
+
+**English**: a local tool that restores the real shooting date of photos and videos *before* they enter the HarmonyOS NEXT gallery, together with a device-verified write-up of how that gallery actually resolves timestamps. See [docs/harmonyos-gallery-timestamps.md](docs/harmonyos-gallery-timestamps.md) for the experiment and the conclusion.
 
 项目已经走过可行性验证阶段，现在包含：
 
@@ -113,7 +118,7 @@ npm run start:all
 - `phone-receiver/entry/src/main/ets/service/MediaCache.ets`：格式识别、缓存暂存与清理。
 - `phone-receiver/entry/src/main/ets/service/GallerySaver.ets`：缓存文件写入系统图库。
 - `phone-receiver/entry/src/main/ets/components/`：状态卡、连接卡、上传卡、结果卡等 UI 组件。
-- `phone-receiver/entry/src/main/ets/pages/Index.ets`：页面状态编排（约 586 行）。
+- `phone-receiver/entry/src/main/ets/pages/Index.ets`：页面状态编排（约 900 行）。
 - `scripts/verify.mjs`：可行性验证 CLI，保留用于回归测试和格式验证。
 
 ## 手机双向互传（最小闭环已验证）
@@ -415,21 +420,33 @@ npm run verify:inspect
 
 ```
 TimePostman/
-  app/
-    server.mjs            本地网页服务 + API
-    lib/media-dates.mjs   媒体扫描、日期读取、元数据写入
-    public/               网页界面
-  scripts/verify.mjs      可行性验证 CLI
-  samples/input/          合成样本
-  samples/real/           你的真实测试素材（不会被修改）
-  samples/output/run-*/   验证运行的副本、清单、结果记录
-  exports/                网页版默认输出目录（每次新建子文件夹）
-  phone-transfer/         手机互传的 PC 端局域网服务
-  phone-inbox/            手机上传到电脑的照片
-  phone-receiver/         手机端双向互传 ArkTS 工程
+  app/                      电脑端本地网页服务（只监听 127.0.0.1）
+    server.mjs              扫描/处理 API、任务进度、输出清理
+    lib/media-dates.mjs     媒体扫描、日期读取、元数据写入（唯一的写入实现）
+    public/                 网页界面，零构建的原生 HTML/CSS/JS
+  phone-transfer/           手机互传的局域网服务（8787）
+  phone-receiver/           手机端 ArkTS 工程，用 DevEco Studio 打开
+  scripts/
+    start-all.mjs           一键启动两个服务并打开网页
+    verify.mjs              四变体验证矩阵与回读检查
+    build-release.mjs       构建 Windows 便携发布包
+    install-shortcuts.ps1   创建桌面快捷方式与开机启动项
+  docs/
+    harmonyos-gallery-timestamps.md   鸿蒙图库时间戳规则的实测记录
+  samples/                  验证素材：input/ 合成样本，real/ 真实素材，output/ 运行结果
+  exports/                  网页版默认输出目录（运行时生成）
+  phone-inbox/              手机上传的原文件（运行时生成）
+  dist/                     发布产物（运行时生成）
+  .github/workflows/ci.yml  CI：Node 20 / 22 跑 verify:all
+  start.bat / startup.bat   手动启动 / 开机静默启动
   package.json
-  README.md
+  README.md                 本文件
+  项目开发报告.md           完整的架构、原理与踩坑记录
+  SECURITY.md               安全边界与已知弱点
+  LICENSE                   MIT
 ```
+
+`samples/real/`、`samples/output/`、`exports/`、`phone-inbox/`、`dist/` 都不进版本库。
 
 运行目录里的文件：
 
@@ -442,3 +459,13 @@ TimePostman/
 ## 注意
 
 PC MVP 和验证脚本都只修改副本，不会动源文件夹里的原文件。真机测试前请确认文件可以安全传入手机图库；如果你很在意图库整洁，建议先用一台测试机或一个空相册。网页服务只监听本机 `127.0.0.1`，不要把端口转发到局域网或公网。
+
+## 安全
+
+手机互传服务需要监听 `0.0.0.0:8787`，手机才能连上，所以它**只应该在你信任的局域网里运行**。不要在公共 WiFi 下开着它，也不要做端口转发或内网穿透。
+
+已做的防护（Host 校验、配对令牌 30 天滑动过期、设备撤销、重新配对作废旧令牌）和仍然存在的弱点（令牌走 URL 参数、局域网无 TLS、`/api` 无速率限制）都写在 [SECURITY.md](SECURITY.md) 里，用之前请读一遍。
+
+## 许可证
+
+[MIT](LICENSE) © 2026 凩新
