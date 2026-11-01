@@ -10,6 +10,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INPUT_DIR = path.join(ROOT, "samples", "input");
 const OUTPUT_DIR = path.join(ROOT, "samples", "output");
 const TZ_OFFSET = "+08:00";
+// 文件创建时间只有 Windows 和 macOS 的文件系统支持，Linux 上写不进去。
+const CAN_SET_FILE_CREATE_DATE = process.platform === "win32" || process.platform === "darwin";
+
 
 const TEST_DATES = {
   A: { code: "A", local: "2017:04:09 12:00:00", label: "2017-04-09 12:00:00 (UTC+8)" },
@@ -238,8 +241,10 @@ function variantsFor(kind) {
 
 async function applyImageMetadata(file, metaTarget, fileTarget) {
   const tags = {
-    FileModifyDate: fileTarget.local,
-    FileCreateDate: fileTarget.local,
+    // 文件时间必须带上显式偏移，否则 ExifTool 会按宿主机时区解释，
+    // 在 UTC 机器上算出来的结果会和 UTC+8 的预期不一致。
+    FileModifyDate: `${fileTarget.local}${TZ_OFFSET}`,
+    FileCreateDate: `${fileTarget.local}${TZ_OFFSET}`,
   };
   if (metaTarget) {
     tags.AllDates = metaTarget.local;
@@ -254,17 +259,19 @@ async function applyImageMetadata(file, metaTarget, fileTarget) {
 
 async function applyVideoMetadata(file, metaTarget, fileTarget) {
   const tags = {
-    FileModifyDate: fileTarget.local,
-    FileCreateDate: fileTarget.local,
+    FileModifyDate: `${fileTarget.local}${TZ_OFFSET}`,
+    FileCreateDate: `${fileTarget.local}${TZ_OFFSET}`,
   };
   if (metaTarget) {
-    tags["QuickTime:CreateDate"] = metaTarget.local;
-    tags["QuickTime:ModifyDate"] = metaTarget.local;
-    tags["QuickTime:TrackCreateDate"] = metaTarget.local;
-    tags["QuickTime:TrackModifyDate"] = metaTarget.local;
-    tags["QuickTime:MediaCreateDate"] = metaTarget.local;
-    tags["QuickTime:MediaModifyDate"] = metaTarget.local;
-    tags["Keys:CreationDate"] = `${metaTarget.local}${TZ_OFFSET}`;
+    // 显式带 +08:00，ExifTool 才不会按宿主机时区去解释这几个纯本地时间字符串。
+    const metaWithOffset = `${metaTarget.local}${TZ_OFFSET}`;
+    tags["QuickTime:CreateDate"] = metaWithOffset;
+    tags["QuickTime:ModifyDate"] = metaWithOffset;
+    tags["QuickTime:TrackCreateDate"] = metaWithOffset;
+    tags["QuickTime:TrackModifyDate"] = metaWithOffset;
+    tags["QuickTime:MediaCreateDate"] = metaWithOffset;
+    tags["QuickTime:MediaModifyDate"] = metaWithOffset;
+    tags["Keys:CreationDate"] = metaWithOffset;
     return exiftool.write(file, tags, ["-api", "QuickTimeUTC=1", "-overwrite_original"]);
   }
   return exiftool.write(file, tags, ["-time:all=", "-overwrite_original"]);
@@ -317,7 +324,11 @@ function checkActual(kind, metaTarget, fileTarget, actual) {
     );
   }
   checks.push(sameInstant(fileTarget.local, actual.fileModify));
-  checks.push(sameInstant(fileTarget.local, actual.fileCreate));
+  // FileCreateDate 只有 Windows / macOS 能写，Linux 上 ExifTool 会直接忽略这个标签并给出警告，
+  // 所以只在支持的平台上把它算作判定条件，否则 CI 上每个文件都会被误判为不符合预期。
+  if (CAN_SET_FILE_CREATE_DATE) {
+    checks.push(sameInstant(fileTarget.local, actual.fileCreate));
+  }
   return checks.every(Boolean);
 }
 
