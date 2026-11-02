@@ -128,22 +128,30 @@ function hostWithoutPort(hostHeader) {
   return raw;
 }
 
-const PRIVATE_IPV4_PATTERNS = [
-  /^10\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[01])\./,
-  /^169\.254\./,
-];
+function isIpv4Literal(host) {
+  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!match) return false;
+  return match.slice(1).every((part) => Number(part) <= 255);
+}
 
-// 只接受 IP 字面量或本机名作为 Host。
-// 这样恶意域名解析到局域网地址（DNS rebinding）时，浏览器带来的 Host 仍是那个域名，会被直接拒掉。
+function isIpv6Literal(host) {
+  // 方括号已在 hostWithoutPort 里去掉，这里只做形状判断。
+  if (!host.includes(":") || !/^[0-9a-f:.%]+$/.test(host)) return false;
+  return true;
+}
+
+// 只接受 IP 字面量或本机名作为 Host，拒绝域名。
+// DNS rebinding 的前提是浏览器发来的 Host 是攻击者的域名（域名解析到了局域网地址），
+// 所以挡住域名就够了，不必去猜哪些网段算「局域网」——100.64/10 这类运营商级 NAT 段
+// 同样合法，按白名单猜会把正常用户挡在门外。
 function isTrustedHost(hostHeader) {
   const host = hostWithoutPort(hostHeader);
   if (!host) return false;
-  if (host === "127.0.0.1" || host === "localhost" || host === "::1") return true;
+  if (host === "localhost") return true;
+  if (isIpv4Literal(host) || isIpv6Literal(host)) return true;
   const machine = os.hostname().toLowerCase();
   if (host === machine || host === `${machine}.local`) return true;
-  return PRIVATE_IPV4_PATTERNS.some((pattern) => pattern.test(host));
+  return false;
 }
 
 function allowPairRequest(ip) {
@@ -165,8 +173,11 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (!isTrustedHost(req.get("host"))) {
+    console.warn(
+      `拒绝请求：Host="${req.get("host") || "(缺失)"}" 来自 ${req.socket.remoteAddress || "?"} ${req.method} ${req.path}`,
+    );
     res.status(403).json({
-      error: "Host 未被信任：这个服务只接受局域网 IP 或 localhost 访问，请用电脑的 IP 地址直接连接。",
+      error: `Host 未被信任（收到 "${req.get("host") || "(缺失)"}"）：请用电脑的 IP 地址或 localhost 连接，不要用域名。`,
     });
     return;
   }
